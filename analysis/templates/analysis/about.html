@@ -1,0 +1,184 @@
+{% extends "analysis/base.html" %}
+
+{% block page_title %}О проекте{% endblock %}
+
+
+{% block style %}
+<title>О проекте</title>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script type="text/javascript"
+        id="MathJax-script"
+        async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+<style>
+    /* Основные стили */
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .hero-section {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+    }
+    
+    .hero-description {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        max-width: 800px;
+        margin: 0 auto 2rem;
+    }
+    
+    /* Стили для карточек инструментов */
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+    
+    .tool-card {
+        background: var(--box-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .tool-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .tool-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+    }
+    
+    .tool-title {
+        font-size: 1.3rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-color);
+    }
+    
+    .tool-description {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+    
+    .tool-link {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 2rem;
+        }
+        
+        .tools-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+
+<p>
+    Данный веб-интерфейс предназначен для автоматического анализа результатов статических и вибрационных испытаний материалов. Он позволяет вычислять эффективный модуль Юнга, строить графики нагружения, а также анализировать частотные характеристики для систем с динамической нагрузкой.
+</p>
+
+<h2>Расчет модуля Юнга</h2>
+
+<p>
+    Класс <code>YoungModulusAnalyzer</code> выполняет следующие этапы:
+</p>
+
+<ol>
+    <li>Загрузка экспериментальных данных (сила, перемещение, время);</li>
+    <li>Автоматическое обнаружение пиков в циклах нагружения;</li>
+    <li>Вычисление модуля Юнга по наклону графика <strong>напряжение–деформация</strong>.</li>
+</ol>
+
+<div class="formula">
+    Площадь поперечного сечения образца: <br>
+    $$ A = \text{width} \times \text{length} $$
+</div>
+
+<div class="formula">
+    Напряжение: <br>
+    $$ \sigma = \frac{F}{A} $$
+</div>
+
+<div class="formula">
+    Относительная деформация: <br>
+    $$ \varepsilon = \frac{\Delta L}{L_0} $$
+</div>
+
+<div class="formula">
+    Модуль Юнга: <br>
+    $$ E = \frac{\sigma}{\varepsilon} $$
+</div>
+
+<p>
+    Расчёты проводятся по отдельным сегментам выбранного цикла нагружения, после чего строятся соответствующие графики.
+</p>
+
+<h2>Анализ вибрационных характеристик</h2>
+
+<p>
+    Модуль <code>vibration_analysis_</code> предназначен для анализа спектров вибраций. Используются передаточные функции и логарифмические преобразования.
+</p>
+
+<div class="formula">
+    Передаточная функция (TR): <br>
+    $$ TR(f) = \frac{P_{вых}(f)}{P_{вх}(f)} $$
+</div>
+
+<div class="formula">
+    Эффективность изоляции: <br>
+    $$ L(f) = 20 \log_{10}(TR(f)) $$
+</div>
+
+<p>
+    Также реализовано определение <strong>резонансной частоты</strong> и её <strong>ширины на половине высоты</strong>:
+</p>
+
+<div class="formula">
+    Ширина резонанса: <br>
+    $$ \Delta f = f_2 - f_1, \quad \text{где } TR(f_1) = TR(f_2) = \frac{TR_{max}}{\sqrt{2}} $$
+</div>
+
+<p>
+    Все вычисления сопровождаются автоматической визуализацией результатов с помощью интерактивных графиков Plotly.
+</p>
+
+<h2>Технологии</h2>
+<ul>
+    <li>Python (NumPy, Pandas, SciPy)</li>
+    <li>Django – серверная логика</li>
+    <li>Plotly.js – визуализация графиков</li>
+    <li>MathJax – отображение формул</li>
+</ul>
+
+<hr>
+<!-- <p><strong>Разработчик:</strong> [Ваше имя или команда] • <strong>Год:</strong> 2025</p> -->
+
+{% endblock %}

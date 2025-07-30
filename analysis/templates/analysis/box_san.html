@@ -1,0 +1,298 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}Коробочка{% endblock %}
+
+{% block style %}  <style>
+
+
+  .glass-container {
+    background: var(--box-bg);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(10px);
+    width: 90%;
+    max-width: 1200px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    }
+    .fileform { 
+      background-color: #FFFFFF;
+      border: 1px solid #CCCCCC;
+      border-radius: 2px;
+      cursor: pointer;
+      height: 26px;
+      overflow: hidden;
+      padding: 2px;
+      position: relative;
+      text-align: left;
+      vertical-align: middle;
+      width: 230px;
+  }
+  .fileform .selectbutton { 
+      background-color: #A2A3A3;
+      border: 1px solid #939494;
+      border-radius: 2px;
+      color: #FFFFFF;
+      float: right;
+      font-size: 16px;
+      height: 20px;
+      line-height: 20px;
+      overflow: hidden;
+      padding: 2px 6px;
+      text-align: center;
+      vertical-align: middle;
+      width: 50px;
+  }
+  .fileform #upload{
+      position:absolute; 
+      top:0; 
+      left:0; 
+      width:100%; 
+      -moz-opacity: 0; 
+      filter: alpha(opacity=0); 
+      opacity: 0; 
+      font-size: 150px; 
+      height: 30px; 
+      z-index:20;
+  }
+  .fileform #fileformlabel { 
+      background-color: #FFFFFF;
+      float: left;
+      height: 22px;
+      line-height: 22px;
+      overflow: hidden;
+      padding: 2px;
+      text-align: left;
+      vertical-align: middle;
+      width:160px;
+  }
+
+  input[type="file"] {
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  button:hover {
+    background: #0072ff;
+  }
+
+  .plot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 2rem;
+    width: 100%;
+  }
+
+  .plot {
+    width: 100%;
+    height: 350px;
+    background: var(--box-bg);
+    border-radius: 10px;
+    padding: 15px;
+  }
+
+  .error {
+    color: #ff6b6b;
+    font-weight: bold;
+    margin-top: 1rem;
+  }
+
+  .upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 2rem;
+    }
+    .plot {
+      height: 300px;
+    }
+  }
+  
+</style>{% endblock %}
+
+{% block content %}
+  <form method="post" id="Form" enctype="multipart/form-data" class="upload-section">
+    {% csrf_token %}
+            <label><strong>📁 Загрузите файл с данными (TXT):</strong></label>
+            <label for="csvFile" class="btn-download transition_3">📁 Выбрать файлы</label>
+            <input class="input-file transition_3" type="file" name="csv_file" id="csvFile" accept=".txt" value="{{ filename.filename}}" required />
+            <button class="transition_3" type="submit">Построить графики</button>
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+    </form>
+
+      {% if filename.filename %}
+      <div class="filename-display">
+        <strong>Текущий файл:</strong> {{ filename.filename }}
+      </div>
+      {% endif %}
+
+
+<div class="Время убивать" id="plot-container"></div>
+{% endblock %}
+
+
+{% block script %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+  const datasets = {{ datasets|default:"[]"|safe }};
+  const body = document.body;
+  const themeToggle = document.getElementById("themeToggle");
+
+  function getPlotlyLayoutOverrides(theme) {
+    const styles = getComputedStyle(document.body);
+    return {
+      template: theme === "dark" ? "plotly_dark" : "plotly_white",
+      font: { color: styles.getPropertyValue("--text-color").trim() },
+      plot_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      paper_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      xaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      },
+      yaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      }
+    };
+  }
+
+  function drawPlots() {
+    const theme = body.classList.contains("dark") ? "dark" : "light";
+    const container = document.getElementById("plot-container");
+    container.innerHTML = "";  // Очистка
+
+    if (!Array.isArray(datasets) || datasets.length === 0) return;
+
+    datasets.forEach((plot, index) => {
+      const div = document.createElement("div");
+      div.className = "plot";
+      div.id = `plot-${index}`;
+      container.appendChild(div);
+
+      Plotly.newPlot(div.id, [{
+        x: plot.x,
+        y: plot.y,
+        type: 'scatter',
+        mode: 'lines',
+        marker: { color: getComputedStyle(document.body).getPropertyValue("--plot-color").trim() }
+      }], {
+        title: plot.title,
+        xaxis: { title: plot.xaxis_title },
+        yaxis: { title: plot.yaxis_title },
+        margin: { t: 50, l: 50, r: 50, b: 50 },
+        ...getPlotlyLayoutOverrides(theme)
+      }, { responsive: true });
+    });
+  }
+
+  function applyTheme(theme) {
+    if (theme === "dark") {
+      body.classList.add("dark");
+      themeToggle.textContent = "☀️ Светлая тема";
+    } else {
+      body.classList.remove("dark");
+      themeToggle.textContent = "🌙 Тёмная тема";
+    }
+    drawPlots();
+  }
+
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  applyTheme(savedTheme);
+
+  themeToggle.addEventListener("click", () => {
+    const newTheme = body.classList.contains("dark") ? "light" : "dark";
+    localStorage.setItem("theme", newTheme);
+    applyTheme(newTheme);
+  });
+
+  document.addEventListener("DOMContentLoaded", drawPlots);
+  
+</script>
+
+<script>
+if (!document.getElementById('csvFile').files.length) {
+  e.preventDefault();
+  const errorElement = document.createElement('div');
+  errorElement.textContent = 'Выберите файл в формате .txt';
+  errorElement.style.color = 'red';
+  document.getElementById('csvFile').after(errorElement);
+}
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

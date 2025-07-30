@@ -1,0 +1,241 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}Анализ модуля Юнга{% endblock %}
+
+{% block style %}
+<style>
+    .glass-container {
+        background: var(--box-bg);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(10px);
+        width: 90%;
+        max-width: 1200px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    input[type="file"], input[type="number"], input[type="text"] {
+        padding: 0.5rem;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 1rem;
+        background: var(--input-bg);
+        color: var(--text-color);
+    }
+
+    .input-sample{
+    border: solid;
+    }
+
+    button:hover {
+        background: #0072ff;
+    }
+
+    .plot-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        margin-top: 2rem;
+        width: 100%;
+    }
+
+    .plot {
+        width: 100%;
+        height: 500px;
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .error {
+        color: #ff6b6b;
+        font-weight: bold;
+        margin-top: 1rem;
+    }
+
+    .upload-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .parameters-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .parameter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 200px;
+    }
+
+    label {
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        h1 {
+            font-size: 2rem;
+        }
+        .plot {
+            height: 400px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="upload-section">
+    {% csrf_token %}
+        <h2>Параметры образца</h2>
+        <div class="parameters-section">
+            <div class="parameter-group">
+                <label for="sampleName">Название образца:</label>
+                <input  class="input-sample" type="text" name="sampleName" id="sampleName" value="{{ form_data.sampleName|default:'Sample' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="width">Ширина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="width" id="width" value="{{ form_data.width|default:'100' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="length">Длина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="length" id="length" value="{{ form_data.length|default:'100' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="height">Начальная высота (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="height" id="height" value="{{ form_data.height|default:'20' }}" required />
+            </div>
+        </div>
+        
+        <div class="upload-section">
+            <label><strong>📁 Загрузите файл с данными (TXT):</strong></label>
+            <label for="csvFile" class="btn-download">📁 Выбрать файлы</label>
+            <input type="file"  class="input-file" name="csv_file" id="csvFile" accept=".txt"  required />
+            <button type="submit">Построить графики</button>
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+    </form>
+
+        </div>
+</form>
+
+
+<div class="plot-container" id="plot-container"></div>
+{% endblock %}
+
+{% block script %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+  const datasets = {{ datasets|default:"[]"|safe }};
+  const body = document.body;
+  const themeToggle = document.getElementById("themeToggle");
+
+  function getPlotlyLayoutOverrides(theme) {
+    const styles = getComputedStyle(document.body);
+    return {
+      template: theme === "dark" ? "plotly_dark" : "plotly_white",
+      font: { color: styles.getPropertyValue("--text-color").trim() },
+      plot_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      paper_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      xaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      },
+      yaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      }
+    };
+  }
+
+  function drawPlots() {
+    const theme = body.classList.contains("dark") ? "dark" : "light";
+    const container = document.getElementById("plot-container");
+    container.innerHTML = "";  // Очистка
+
+    if (!Array.isArray(datasets) || datasets.length === 0) return;
+    datasets.forEach((plot, index) => {
+        const div = document.createElement("div");
+        div.className = "plot";
+        div.id = `plot-${index}`;
+        container.appendChild(div);
+
+        const layout = {
+            title: plot.title,
+            xaxis: { title: plot.xaxis_title },
+            yaxis: { title: plot.yaxis_title },
+            margin: { t: 50, l: 50, r: 50, b: 50 },
+            ...getPlotlyLayoutOverrides(theme)
+        };
+
+        // Добавляем аннотации если они есть
+        if (plot.annotations) {
+            layout.annotations = plot.annotations;
+        }
+
+        if (!plot.data) {
+            Plotly.newPlot(div.id, [{
+                x: plot.x,
+                y: plot.y,
+                type: 'scatter',
+                mode: 'lines',
+                fill: 'tozeroy',
+                fillcolor: plot.line || { color: 'None' },
+                fillpattern: {
+                shape: '+', // варианты: '/', '\\', 'x', '-', '|', '+', '.'
+                fgcolor: 'blue',
+                bgcolor: 'yellow'},
+                fgopacity: 0.5,
+                bgopacity: 0,
+                line: plot.line || { color: '#1f77b4' }
+            }], layout, { responsive: true });
+        } else {
+            const traces = plot.data.map(cycle => ({
+                x: cycle.x,
+                y: cycle.y,
+                type: 'scatter',
+                mode: 'lines',
+                name: cycle.name,
+                line: cycle.line || { color: '#1f77b4' }
+            }));
+            Plotly.newPlot(div.id, traces, layout, { responsive: true });
+        }
+    });
+}
+
+  function applyTheme(theme) {
+    if (theme === "dark") {
+      body.classList.add("dark");
+      themeToggle.textContent = "☀️ Светлая тема";
+    } else {
+      body.classList.remove("dark");
+      themeToggle.textContent = "🌙 Тёмная тема";
+    }
+    drawPlots();
+  }
+
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  applyTheme(savedTheme);
+
+  themeToggle.addEventListener("click", () => {
+    const newTheme = body.classList.contains("dark") ? "light" : "dark";
+    localStorage.setItem("theme", newTheme);
+    applyTheme(newTheme);
+  });
+
+  document.addEventListener("DOMContentLoaded", drawPlots);
+</script>
+{% endblock %}
+

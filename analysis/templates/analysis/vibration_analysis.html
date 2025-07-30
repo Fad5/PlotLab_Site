@@ -1,0 +1,599 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block page_title %}PPU-Testus{% endblock %}
+
+{% block style %}
+<style>
+    .glass-container {
+        background: var(--box-bg);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(10px);
+        width: 90%;
+        max-width: 1200px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    input[type="file"], input[type="number"], input[type="text"] {
+        padding: 0.5rem;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 1rem;
+        background: var(--input-bg);
+        color: var(--text-color);
+    }
+
+    .input-sample{
+        border-radius: 8px;
+        border: solid 3px var(--text-color);
+    }
+
+    button:hover {
+        background: #0072ff;
+    }
+
+    .plot-container_all {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        margin-top: 2rem;
+        width: 100%;
+    }
+    .plot-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        margin-top: 2rem;
+        width: 100%;
+    }
+
+    .plot {
+        width: 100%;
+        height: 500px;
+        border-radius: 10px;
+        padding: 15px;
+    }
+
+    .error {
+        color: #ff6b6b;
+        font-weight: bold;
+        margin-top: 1rem;
+    }
+
+    .upload-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .parameters-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .parameter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 200px;
+    }
+
+    label {
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        h1 {
+            font-size: 2rem;
+        }
+        .plot {
+            height: 400px;
+        }
+    }
+</style>
+
+    <style>
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #test-blocks-container{
+            width: 100%;
+        }
+        .form-group {
+            margin: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .remove-btn {
+            background-color: #f44336;
+        }
+        .remove-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        #add-test-block{
+            margin: 10px;
+        }
+        .test-block{
+            display: flex;
+        }
+
+    </style>
+{% endblock %}
+
+{% block content %}
+    <form method="post" enctype="multipart/form-data" class="upload-section">
+        {% csrf_token %}
+        <h2>Параметры образца</h2>
+        <div class="parameters-section">
+            <div class="parameter-group">
+                <label for="sampleName">Название образца:</label>
+                <input class="input-sample" type="text" name="sampleName" id="sampleName" value="{{ form_data.sampleName|default:'Sample' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="width">Ширина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="width" id="width" value="{{ form_data.width|default:'100' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="length">Длина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="length" id="length" value="{{ form_data.length|default:'100' }}" required />
+            </div>
+            
+            <div class="parameter-group">
+                <label for="height_id">Высота (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="height_id" id="height_id" value="{{ form_data.height|default:'700' }}"  required />
+            </div>
+            <div class="parameter-group">
+                <label for="Hz">Верхний придел Гц:</label>
+                <input class="input-sample" type="number" step="0.01" name="Hz" id="Hz" value="{{ form_data.Hz|default:'700' }}" required />
+            </div>
+        </div>
+        <h2>Параметры испытаний</h2>
+         <div id="test-blocks-container">
+        <div class="test-block" id="test-block">
+                <!-- Блоки полей будут добавляться сюда -->
+                <div class="test-block" id="test-block-0">
+                    <div class="form-group">
+                        <label  for="id_height_0">Высота под пригрузом (мм):</label>
+                        <input class="input-sample" type="number" step="0.01" name="height_0" id="id_height_0" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="id_mass_0">Масса пригруза (кг):</label> 
+                        <input class="input-sample" type="number" step="0.01" name="mass_0" id="id_mass_0"  value="1" required>
+                    </div> 
+                    <div class="form-group">
+                        <label for="id_file_0">Файл испытания:</label>
+                        <input class="input-sample" type="file" name="file_0" id="id_file_0" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="upload-section">
+            <button type="button" id="add-test-block">Добавить испытание</button>
+            <button type="submit">Построить графики</button>
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+        </div>
+    </form>
+
+{% if results_table %}
+<h2 style="font-size: 1.5rem; font-weight: 600; color: var(--text-color); margin-bottom: 1rem;">
+  Результаты по пикам
+</h2>
+
+<style>
+  .table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+    background: var(--box-bg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .results-table {
+    width: 100%;
+    min-width: 500px;
+    border-collapse: collapse;
+    color: var(--text-color);
+  }
+
+  .results-table th,
+  .results-table td {
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--grid-color);
+    white-space: nowrap;
+  }
+
+  .results-table thead {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+  }
+
+  .results-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .results-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  @media (max-width: 768px) {
+    .results-table th, .results-table td {
+      padding: 0.5rem 0.75rem;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      text-align: center;
+    }
+  }
+</style>
+
+  <div class="table-wrapper">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Номер</th>
+          <th>Частота пика (Гц)</th>
+          <th>Динамический модуль (МПа)</th>
+          <th>Демпфирование</th>
+          <th>Модуль передаточной функции</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for result in results_table %}
+        <tr>
+          <td>{{ result.name }}</td>
+          <td>{{ result.Fpeak|floatformat:2 }}</td>
+          <td>{{ result.Ed|floatformat:3 }}</td>
+          <td>{{ result.damp|floatformat:4 }}</td>
+          <td>{{ result.DM|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+<div class="plot-container" id="plot-container"></div>
+<div class="plot-container_all" id="plot-container_all"></div>
+{% endblock %}
+
+
+{% block script %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>console.log("datasets:", {{ datasets|safe }});</script>
+<script>
+
+
+  const datasets = {{ datasets|default:"[]"|safe }};
+  const peaks = {{ peaks_json|default:"[]"|safe }};  // Добавьте эту строку
+  const body = document.body;
+  const themeToggle = document.getElementById("themeToggle");
+
+
+  function getPlotlyLayoutOverrides(theme) {
+    const styles = getComputedStyle(document.body);
+    return {
+      template: theme === "dark" ? "plotly_dark" : "plotly_white",
+      font: { color: styles.getPropertyValue("--text-color").trim() },
+      plot_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      paper_bgcolor: styles.getPropertyValue("--box-bg").trim(),
+      xaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      },
+      yaxis: {
+        gridcolor: styles.getPropertyValue("--grid-color").trim(),
+        color: styles.getPropertyValue("--text-color").trim()
+      }
+    };
+  }
+
+function drawPlots() {
+    const container = document.getElementById("plot-container");
+    container.innerHTML = "";
+
+    if (!Array.isArray(datasets)) return;
+
+    datasets.forEach((plotGroup, index) => {
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.flexDirection = "column";
+        row.style.gap = "20px";
+        container.appendChild(row);
+
+        plotGroup.forEach((plotData, subindex) => {
+            const div = document.createElement("div");
+
+            div.className = "plot";
+            div.id = `plot-${index}-${subindex}`;
+            row.appendChild(div);
+            
+
+            const overrides = getPlotlyLayoutOverrides(document.body.classList.contains("dark") ? "dark" : "light");
+
+            const layout = {
+                title: subindex === 0 ? `Передаточная функция Образец ${index + 1}` : `Эффективность виброизоляции Образец ${index + 1}`,
+                margin: { t: 50, l: 50, r: 50, b: 50 },
+                showlegend: false,
+                ...overrides,
+                xaxis: {
+                    ...(overrides.xaxis || {}),
+                    title: 'Частота, Гц'
+                },
+                yaxis: {
+                    ...(overrides.yaxis || {}),
+                    title: subindex === 0 ? 'Модуль передаточной функции' : 'Эффективность, дБ'
+                }
+            };
+
+            // Копируем данные графика, чтобы не изменять оригинал
+            const plotDataCopy = JSON.parse(JSON.stringify(plotData));
+            
+            // Добавляем маркеры пиков, если они есть
+            if (peaks && peaks[index]) {
+                const peak = peaks[index];
+                
+                if (subindex === 0) {
+                    // Для графика передаточной функции
+                    plotDataCopy.push({
+                        x: [peak.position[0]],
+                        y: [peak.position[1]],
+                        mode: 'markers',
+                        name: 'Резонансный пик',
+                        marker: peak.marker
+                    });
+                    
+                    // Добавляем аннотацию
+                    layout.annotations = [{
+                        x: peak.annotation.position[0],
+                        y: peak.annotation.position[1],
+                        text: peak.annotation.text,
+                        showarrow: true,
+                        arrowhead: 7,
+                        ax: 0,
+                        ay: -40
+                    }];
+                    
+                    // // Добавляем линии ширины резонанса, если есть
+                    // if (peak.resonance_width) {
+                    //     const [f1, f2] = peak.resonance_width;
+                    //     const yValue = peak.position[1] * 0.707; // Уровень -3dB
+                        
+                    //     plotDataCopy.push({
+                    //         x: [f1, f2],
+                    //         y: [yValue, yValue],
+                    //         mode: 'lines',
+                    //         line: {dash: 'dash', color: 'red'},
+                    //         name: 'Ширина резонанса'
+                    //     });
+                    // }
+                } else {
+                    // Для графика эффективности
+                    plotDataCopy.push({
+                        x: [peak.efficiency_position[0]],
+                        y: [peak.efficiency_position[1]],
+                        mode: 'markers',
+                        name: 'Резонансный пик',
+                        marker: peak.marker
+                    });
+                }
+            }
+
+            Plotly.newPlot(div.id, plotDataCopy, layout, {responsive: true});
+        });
+    });
+}
+
+
+// Функция для поиска пиков (аналог find_peaks из Python)
+function findPeaks(data, options = {}) {
+    const {distance = 1, prominence = 0} = options;
+    const peaks = [];
+    
+    for (let i = 1; i < data.length - 1; i++) {
+        if (data[i] > data[i-1] && data[i] > data[i+1]) {
+            let isPeak = true;
+            
+            // Проверка расстояния до других пиков
+            for (const peak of peaks) {
+                if (Math.abs(peak.pos - i) < distance) {
+                    isPeak = false;
+                    if (data[i] > peak.value) {
+                        peak.pos = i;
+                        peak.value = data[i];
+                    }
+                    break;
+                }
+            }
+            
+            // Проверка prominence
+            if (isPeak) {
+                let leftMin = Math.min(...data.slice(0, i));
+                let rightMin = Math.min(...data.slice(i));
+                const currentProminence = data[i] - Math.max(leftMin, rightMin);
+                
+                if (currentProminence >= prominence) {
+                    peaks.push({pos: i, value: data[i]});
+                }
+            }
+        }
+    }
+    
+    return peaks.map(peak => peak.pos);
+}
+
+// Функция для определения ширины резонанса (аналог find_res_width2)
+function findResonanceWidth(data, freqs, peakPos, level = 0.707) {
+    const peakValue = data[peakPos];
+    const targetValue = peakValue * level;
+    
+    // Ищем слева от пика
+    let left = peakPos;
+    while (left > 0 && data[left] > targetValue) left--;
+    
+    // Ищем справа от пика
+    let right = peakPos;
+    while (right < data.length - 1 && data[right] > targetValue) right++;
+    
+    return [freqs[left], freqs[right]];
+}
+
+  function applyTheme(theme) {
+    if (theme === "dark") {
+      body.classList.add("dark");
+      themeToggle.textContent = "☀️ Светлая тема";
+    } else {
+      body.classList.remove("dark");
+      themeToggle.textContent = "🌙 Тёмная тема";
+    }
+    drawPlots();
+  }
+
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  applyTheme(savedTheme);
+
+  themeToggle.addEventListener("click", () => {
+    const newTheme = body.classList.contains("dark") ? "light" : "dark";
+    localStorage.setItem("theme", newTheme);
+    applyTheme(newTheme);
+  });
+
+  document.addEventListener("DOMContentLoaded", drawPlots);
+
+
+
+
+
+
+
+
+function drawCombinedPlot() {
+    const container = document.getElementById("plot-container_all");
+    if (!container) {
+        console.error("Container 'plot-container_all' not found");
+        return;
+    }
+    container.innerHTML = "";
+
+    if (!Array.isArray(datasets) || datasets.length === 0) {
+        console.error("No valid data to plot");
+        return;
+    }
+
+    // Подготовка данных для объединенного графика
+    const allTransferFunctions = []; // Все передаточные функции
+    const allEfficiency = []; // Все графики эффективности
+    let maxFrequency = 0;
+
+    // Обрабатываем каждый образец
+    datasets.forEach((sample, sampleIndex) => {
+        if (!Array.isArray(sample) || sample.length < 2) return;
+
+        // Первый блок - передаточные функции
+        
+        if (sample[0] && sample[0][1]) {
+            const tfData = JSON.parse(JSON.stringify(sample[0][1]));
+            tfData.name = `Образец ${sampleIndex + 1} - ${tfData.name}`;
+            allTransferFunctions.push(tfData);
+            
+            // Обновляем максимальную частоту
+            const currentMax = Math.max(...(sample[0][1].x || []));
+            if (currentMax > maxFrequency) maxFrequency = currentMax;
+        }
+
+    });
+
+    // Настройки темы
+    const isDark = document.body.classList.contains("dark");
+
+    // Создаем график с вкладками
+    const plotDiv = document.createElement("div");
+    plotDiv.className = "plot";
+    plotDiv.id = "combined-plot";
+    container.appendChild(plotDiv);
+
+    // Инициализируем с передаточными функциями
+    Plotly.newPlot(plotDiv.id, allTransferFunctions, {
+        title: "Объединенные графики",
+        xaxis: { title: "Частота, Гц", range: [0, maxFrequency || 1000] },
+        yaxis: { title: "Модуль передаточной функции" },
+        showlegend: true,
+    });
+
+}
+
+// Вызываем функцию при загрузке
+document.addEventListener("DOMContentLoaded", drawCombinedPlot);
+</script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('test-blocks-container');
+            let blockCount = 1;
+            
+            document.getElementById('add-test-block').addEventListener('click', function() {
+                const newBlock = document.createElement('div');
+                newBlock.className = 'test-block';
+                newBlock.id = `test-block-${blockCount}`;
+                
+                newBlock.innerHTML = `
+                    <div class="form-group">
+                        <label for="id_height_${blockCount}">Высота под пригрузом (мм):</label>
+                        <input class="input-sample" type="number" step="0.01" name="height_${blockCount}" id="id_height_${blockCount}" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="id_mass_${blockCount}">Масса пригруза (кг):</label>
+                        <input class="input-sample" type="number" step="0.01" name="mass_${blockCount}" id="id_mass_${blockCount}" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="id_file_${blockCount}">Файл испытания:</label>
+                        <input class="input-sample" type="file" name="file_${blockCount}" id="id_file_${blockCount}" required>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="this.parentNode.remove()">Удалить</button>
+
+                `;
+
+                container.appendChild(newBlock);
+                blockCount++;
+            });
+        });
+    </script>
+{% endblock %}
+
+
+
+
+

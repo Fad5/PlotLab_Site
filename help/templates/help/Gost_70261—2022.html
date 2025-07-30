@@ -1,0 +1,162 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}ГОСТ 70261-2022{% endblock %}
+
+{% block style %}
+<style>
+    /* Основные стили */
+    .handbook-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 20px;
+        background: #f8f9fa;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        color: #2c3e50;
+        font-size: 32px;
+        margin: 40px 0 25px;
+        position: relative;
+        padding-left: 20px;
+    }
+    
+    .section-title:before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 5px;
+        height: 80%;
+        width: 5px;
+        background: linear-gradient(to bottom, #3498db, #2ecc71);
+        border-radius: 5px;
+    }
+    
+    .section-content {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+        line-height: 1.6;
+        color: #34495e;
+    }
+    
+    /* Стили для изображений */
+    .img-gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin: 20px 0;
+        justify-content: center;
+    }
+    
+    .img-foto {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+ 
+    }
+
+    .text-center{
+        text-align: center;
+    }
+    
+    .img-foto:hover {
+        transform: scale(1.02);
+    }
+    
+    /* Стили для списка инструкций */
+    .instruction-list {
+        counter-reset: instruction;
+        padding-left: 0;
+    }
+    
+    .instruction-list li {
+        position: relative;
+        padding-left: 50px;
+        margin-bottom: 15px;
+        list-style: none;
+        font-size: 18px;
+    }
+
+    .h3-help{
+        font-size: 25px;
+    }
+    
+    .instruction-list li:before {
+        counter-increment: instruction;
+        content: counter(instruction);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .section-title {
+            font-size: 28px;
+        }
+        
+        .img-gallery {
+            flex-direction: column;
+        }
+        
+        .instruction-list li {
+            padding-left: 40px;
+            font-size: 16px;
+        }
+        
+        .instruction-list li:before {
+            width: 30px;
+            height: 30px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+        <h3 class="h3-help text-center">Определение удельной статической жесткости</h3>
+        <ol class="instruction-list">
+        <li>Определяем тип подшпальной прокладки.</li>
+        <li>Смотрим на геометрические характеристики образца.</li>
+        <li>Вычеслям нагрузку для испытания, по таблице. 
+            Дана нагрузка для образца размером 250х250. 
+            <br>Если например у нас образец 100х100 тип 4, значит получаем коэффициент 250 / 100 = 2.5 
+            <br> F_min = 437 / 2.5 = 175 H,
+            <br> F_max = 9375 / 2.5 = 3750 H,
+            <br> F_1 = = 625 / 2.5 = 250 H, 
+            <br>F_2 = 3750 / 2.5 = 1500 H
+            <br><em>Если образец имеет неправельную форму находим среднее значение</em></li>
+                            <div class="img-gallery">
+        <img class="img-foto" src="{% static 'images/gost_php/2.png' %}" alt="Вибростол - вид 1">
+                            </div>
+        <li>Проводят пятикратное сжатие в диапазоне нагрузок, со скоростью нагружения (37,5 ± 2) кН/мин.</li>
+                                    <div class="img-gallery">
+        <img class="img-foto" src="{% static 'images/gost_php/1.png' %}" alt="Вибростол - вид 1">
+        </div>
+        </ol>
+
+         <h3 class="h3-help text-center">Обрабтка результатов</h3>
+         
+        
+{% endblock %}
+
+{% block script %}
+<!-- Подключаем Font Awesome для иконок -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Аналитика загрузок</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary period-btn" data-period="day">Дни</button>
+                <button type="button" class="btn btn-outline-primary period-btn" data-period="week">Недели</button>
+                <button type="button" class="btn btn-outline-primary period-btn" data-period="month">Месяцы</button>
+                <button type="button" class="btn btn-outline-primary period-btn" data-period="year">Годы</button>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <select class="form-select" id="table-select">
+                {% for table in tables %}
+                <option value="{{ table.name }}">{{ table.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <div id="charts">
+        <div id="files-chart"></div>
+        <div id="size-chart"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPeriod = 'day';
+    let currentTable = document.getElementById('table-select').value;
+    
+    // Инициализация графиков
+    function initCharts() {
+        fetchChartData();
+    }
+    
+    // Обработчики кнопок
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentPeriod = this.dataset.period;
+            fetchChartData();
+        });
+    });
+    
+    document.getElementById('table-select').addEventListener('change', function() {
+        currentTable = this.value;
+        fetchChartData();
+    });
+    
+    // Загрузка данных
+    function fetchChartData() {
+        const url = `/chart-data/?table=${currentTable}&period=${currentPeriod}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                updateCharts(data.data);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+    
+    // Обновление графиков
+    function updateCharts(chartData) {
+        const periods = chartData.map(item => item.period_label);
+        const files = chartData.map(item => item.total_files);
+        const sizes = chartData.map(item => item.total_size_mb);
+        
+        // График количества файлов
+        Plotly.newPlot('files-chart', [{
+            x: periods,
+            y: files,
+            type: 'bar',
+            marker: {color: 'rgba(55, 128, 191, 0.7)'}
+        }], {
+            title: `Количество файлов (${currentPeriod})`,
+            xaxis: {title: 'Период'},
+            yaxis: {title: 'Количество файлов'}
+        });
+        
+        // График объема данных
+        Plotly.newPlot('size-chart', [{
+            x: periods,
+            y: sizes,
+            type: 'bar',
+            marker: {color: 'rgba(219, 64, 82, 0.7)'}
+        }], {
+            title: `Объем данных, MB (${currentPeriod})`,
+            xaxis: {title: 'Период'},
+            yaxis: {title: 'Объем (MB)'}
+        });
+    }
+    
+    initCharts();
+});
+</script>
+{% endblock %}

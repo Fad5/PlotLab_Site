@@ -1,0 +1,82 @@
+<!-- on_load.html -->
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}Определение высоты под нагрузкой на машине WDW-50{% endblock %}
+
+{% block style %}
+<style>
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .results-table th, .results-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .results-table th {
+        background-color: var(--box-bg);
+        color: var(--text-color);
+    }
+    .results-table tr:nth-child(even) {
+        background-color: var(--table-row-bg);
+    }
+    .upload-section {
+        margin-bottom: 20px;
+    }
+    .download-btn {
+        margin-top: 20px;
+        padding: 10px 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .download-btn:hover {
+        background-color: #45a049;
+    }
+    .error {
+        color: red;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="upload-section">
+    {% csrf_token %}
+    <label><strong>📁 Загрузите файлы с данными (TXT):</strong></label>
+    <label for="csvFiles" class="btn-download transition_3">📁 Выбрать файлы</label>
+    <input class="input-file transition_3" type="file" name="csv_files" id="csvFiles" accept=".txt" multiple required />
+    <button class="transition_3" type="submit">Обработать данные</button>
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+</form>
+
+{% if results %}
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>Имя файла</th>
+                <th>20Н (мм)</th>
+                <th>50Н (мм)</th>
+                <th>100Н (мм)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in results %}
+            <tr>
+                <td>{{ item.filename }}</td>
+                <td>{% if item.avg_20 is not None %}{{ item.avg_20|floatformat:2 }}{% else %}N/A{% endif %}</td>
+                <td>{% if item.avg_50 is not None %}{{ item.avg_50|floatformat:2 }}{% else %}N/A{% endif %}</td>
+                <td>{% if item.avg_100 is not None %}{{ item.avg_100|floatformat:2 }}{% else %}N/A{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}
