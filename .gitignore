@@ -4,3 +4,5 @@ help/__pycache__/
 ElasticLab/__pycache__/
 help/migrations/__pycache__/
 db.sqlite3
+protocol/__pycache__/
+protocol/migrations/__pycache__/
