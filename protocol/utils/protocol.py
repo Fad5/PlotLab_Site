@@ -388,14 +388,14 @@ def insert_samples_table(doc, samples_data, decimal_places={'length': 2, 'width'
 
 
 def insert_samples_graphs(doc, samples_data):
-    """Вставляет графики с подписями в конец документа"""
+    """Вставляет графики с подписями"""
     figure_counter = 3
     
-    for i, sample in enumerate(samples_data):
+    for sample in samples_data:
         graphs = [
-            ('full_plot', f"Параметры нагружения при испытании {sample['name']}"),
-            ('modul_plot', f"Зависимость механических характеристик Образца {sample['name']} от величины удельной нагрузки"),
-            ('cycles_plot', f"Диаграмма нагрузка-перемещение образца {sample['name']}")
+            ('full_plot', f"График зависимости перемещения и нагрузки от времени образца {sample['name']}"),
+            ('modul_plot', f"График модуля упругости образца {sample['name']}"),
+            ('cycles_plot', f"Графики циклов нагружения образца {sample['name']}")
         ]
         
         for plot_type, description in graphs:
@@ -404,18 +404,17 @@ def insert_samples_graphs(doc, samples_data):
                 if figure_counter > 1:
                     doc.add_page_break()
                 
-                # Вставляем график по центру
-                para = doc.add_paragraph()
-                para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-                run = para.add_run()
-                run.add_picture(sample[plot_type], width=Inches(8.5))
-                
-                # Добавляем подпись под графиком
+                # Вставляем график
                 p = doc.add_paragraph()
-                run = p.add_run(f"Рисунок {figure_counter} - {description}")
-                run.italic = False
-                run.font.size = Pt(12)
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                run = p.add_run()
+                run.add_picture(sample[plot_type], width=Inches(9))  # Чуть меньший размер для лучшего отображения
+                
+                # Добавляем подпись
+                p = doc.add_paragraph()
+                run = p.add_run(f"Рисунок {figure_counter}. {description}")
                 run.font.name = 'Times New Roman'
+                run.font.size = Pt(12)
                 p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
                 
                 figure_counter += 1
@@ -424,29 +423,37 @@ def fill_template(template_path, samples_data, output_filename):
     """Заполняет шаблон документа данными с правильным расположением элементов"""
     doc = Document(template_path)
     
-    # Замена стандартных плейсхолдеров
-    for paragraph in doc.paragraphs:
+    # Сначала обрабатываем все параграфы шаблона
+    for paragraph in list(doc.paragraphs):  # Используем list() для создания копии
         text = paragraph.text
-        if '{ДАТА}' in text:
-            paragraph.text = text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
         
-        # Вставляем таблицы в строго определенные места
+        if '{ДАТА}' in text:
+            # Заменяем дату
+            paragraph.text = text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
+            
         elif '{LOAD_TABLE_PLACEHOLDER}' in text:
-            # Полностью заменяем абзац с плейсхолдером на таблицу
-            paragraph.text = ''
+            # Вставляем таблицу нагрузок вместо плейсхолдера
+            paragraph.text = paragraph.text.replace('{LOAD_TABLE_PLACEHOLDER}', '')
             insert_load_table(doc, samples_data)
             
         elif '{SAMPLES_TABLE_PLACEHOLDER}' in text:
-            paragraph.text = ''
+            # Вставляем таблицу параметров образцов вместо плейсхолдера
+            paragraph.text = paragraph.text.replace('{SAMPLES_TABLE_PLACEHOLDER}', '')
             insert_samples_table(doc, samples_data)
             
         elif '{GRAPHS_PLACEHOLDER}' in text:
-            paragraph.text = ''
+            # Вставляем графики вместо плейсхолдера
+            paragraph.text = paragraph.text.replace('{GRAPHS_PLACEHOLDER}', '')
+            
             # Добавляем заголовок перед графиками
             p = doc.add_paragraph()
-            run = p.add_run("Графики")
+            run = p.add_run("Графики результатов испытаний")
             run.bold = True
             run.font.size = Pt(14)
+            run.font.name = 'Times New Roman'
+            p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            
+            # Вставляем сами графики
             insert_samples_graphs(doc, samples_data)
     
     doc.save(output_filename)
@@ -470,23 +477,35 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
                 # Создаем пустой документ, если шаблона нет
                 doc = Document()
                 doc.add_paragraph('{ДАТА}')
-                doc.add_paragraph('{TABLE_PLACEHOLDER}')
+                doc.add_paragraph('{LOAD_TABLE_PLACEHOLDER}')
+                doc.add_paragraph('{SAMPLES_TABLE_PLACEHOLDER}')
                 doc.add_paragraph('{GRAPHS_PLACEHOLDER}')
                 doc.save(template_path)
         
-        # Убедимся, что названия образцов в Excel - строки
+        # Проверяем наличие всех плейсхолдеров в шаблоне
+        required_placeholders = {'{ДАТА}', '{LOAD_TABLE_PLACEHOLDER}', 
+                               '{SAMPLES_TABLE_PLACEHOLDER}', '{GRAPHS_PLACEHOLDER}'}
+        doc = Document(template_path)
+        existing_placeholders = set()
+        for paragraph in doc.paragraphs:
+            for placeholder in required_placeholders:
+                if placeholder in paragraph.text:
+                    existing_placeholders.add(placeholder)
+        
+        missing_placeholders = required_placeholders - existing_placeholders
+        if missing_placeholders:
+            print(f"Внимание: В шаблоне отсутствуют следующие плейсхолдеры: {', '.join(missing_placeholders)}")
+        
+        # Остальная часть функции остается без изменений
         data_excel['Образец'] = data_excel['Образец'].astype(str).str.strip()
         data_excel.columns = data_excel.columns.str.strip()
         samples_data = []
         
         for filepath in data_list:
             filename = os.path.basename(filepath)
-            # Извлекаем номер образца из имени файла (удаляем .txt)
             sample_name = os.path.splitext(filename)[0]
             
-            # Ищем соответствие в Excel (убедимся, что сравниваем строки)
             row = data_excel[data_excel['Образец'] == sample_name]
-            
             if row.empty:
                 print(f"Образец {sample_name} не найден в таблице!")
                 continue
@@ -496,7 +515,6 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
                 length = float(row['Длина'].values[0].replace(',', '.'))
                 height = float(row['Высота'].values[0].replace(',', '.'))
                 mass = float(row['Масса'].values[0].replace(',', '.'))
-
             except (IndexError, ValueError) as e:
                 print(f"Ошибка получения параметров для образца {sample_name}: {str(e)}")
                 continue
