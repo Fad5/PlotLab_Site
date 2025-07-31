@@ -1,5 +1,64 @@
 {% extends "analysis/base.html" %}
 
+{% block style %}
+    <style>
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h2 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        .requirement {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .process-step {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .step-number {
+            background-color: #3498db;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex-grow: 1;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background-color: #fffde7;
+            padding: 15px;
+            border-left: 4px solid #ffd600;
+            margin: 20px 0;
+        }
+        </style>
+
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h2>Анализ модуля упругости</h2>
@@ -17,4 +76,141 @@
         <button type="submit" class="btn btn-primary mt-3">Загрузить и проанализировать</button>
     </form>
 </div>
+
+
+    <h1>Инструкция по использованию системы анализа данных</h1>
+
+    <h2>1.Подготовка файлов</h2>
+    
+    <div class="requirement">
+        <h3>Требования к Excel-файлу:</h3>
+        <p>Файл должен содержать следующие столбцы:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Название столбца</th>
+                    <th>Описание</th>
+                    <th>Формат</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Образец</strong></td>
+                    <td>Имя образца</td>
+                    <td>Должно точно соответствовать именам txt-файлов (без расширения)</td>
+                </tr>
+                <tr>
+                    <td><strong>Ширина</strong></td>
+                    <td>Ширина образца</td>
+                    <td>В миллиметрах (число)</td>
+                </tr>
+                <tr>
+                    <td><strong>Длина</strong></td>
+                    <td>Длина образца</td>
+                    <td>В миллиметрах (число)</td>
+                </tr>
+                <tr>
+                    <td><strong>Высота</strong></td>
+                    <td>Высота образца</td>
+                    <td>В миллиметрах (число)</td>
+                </tr>
+                <tr>
+                    <td><strong>Масса</strong></td>
+                    <td>Масса образца</td>
+                    <td>В граммах (число)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="requirement">
+        <h3>Требования к ZIP-архиву:</h3>
+        <ul>
+            <li>Архив должен содержать текстовые файлы с расширением <strong>.txt</strong></li>
+            <li>Имена файлов должны точно соответствовать значениям в столбце "Образец" Excel-файла</li>
+            <li>Файлы должны содержать данные испытаний в TAB-разделенном формате</li>
+            <li>Рекомендуется не более 15 файлов в одном архиве</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>Примечание:</strong> Для корректной обработки убедитесь, что:
+        <ul>
+            <li>В именах файлов и образцов нет опечаток</li>
+            <li>Все числовые значения в Excel введены правильно (используйте точку как десятичный разделитель)</li>
+            <li>ZIP-архив не содержит вложенных папок</li>
+        </ul>
+    </div>
+
+    <h2>2.Процесс работы</h2>
+
+    <div class="process-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+            <strong>Пользователь загружает ZIP-архив и Excel-файл через форму</strong>
+            <p>На странице загрузки выберите соответствующие файлы и нажмите кнопку "Загрузить".</p>
+        </div>
+    </div>
+
+    <div class="process-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+            <strong>Система проверяет файлы на соответствие требованиям</strong>
+            <p>Проверяется:
+                <ul>
+                    <li>Наличие всех обязательных столбцов в Excel</li>
+                    <li>Соответствие имен файлов и образцов</li>
+                    <li>Корректность числовых значений</li>
+                    <li>Наличие TXT-файлов в архиве</li>
+                </ul>
+            </p>
+        </div>
+    </div>
+
+    <div class="process-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+            <strong>Если проверка пройдена:</strong>
+            <div style="margin-left: 20px;">
+                <p><strong>Создается задача обработки</strong> - система начинает обработку файлов</p>
+                <p><strong>Извлекаются данные из архива</strong> - временные файлы сохраняются для обработки</p>
+                <p><strong>Читаются параметры из Excel</strong> - система получает геометрические параметры и массу каждого образца</p>
+                <p><strong>Генерируются графики и таблицы</strong> - создаются три типа графиков для каждого образца</p>
+                <p><strong>Формируется итоговый отчет в формате Word</strong> - все данные объединяются в единый документ</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="note">
+        <strong>Важно!</strong> Время обработки зависит от количества образцов. При большом количестве файлов обработка может занять несколько минут. Не закрывайте страницу до завершения процесса.
+    </div>
+
+    <h3>Пример корректной структуры файлов:</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Excel-файл</th>
+                <th>ZIP-архив</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <pre>
+Образец | Ширина | Длина | Высота | Масса
+--------|--------|-------|--------|------
+sample1 | 10.2   | 15.5  | 5.1    | 25.4
+sample2 | 9.8    | 14.9  | 4.9    | 24.1
+                    </pre>
+                </td>
+                <td>
+                    <pre>
+data.zip
+├── sample1.txt
+└── sample2.txt
+                    </pre>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 {% endblock %}
