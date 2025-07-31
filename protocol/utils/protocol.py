@@ -214,6 +214,9 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
         
     modul_plot_path = create_plot_modul_young(E1, Eps1, Pr, sample_name, length)
     cycles_plot_path = plot_cycles_only(force, displacement, locs, sample_name, length)
+    
+    # Получаем значения нагрузки в заданных диапазонах деформации
+    load_values = get_load_at_deformations(Pr, Eps1)
 
     return {
         'name': sample_name,
@@ -223,8 +226,93 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
         'mass': mass,
         'full_plot': full_plot_path,
         'modul_plot': modul_plot_path,
-        'cycles_plot': cycles_plot_path if cycles_plot_path else None
+        'cycles_plot': cycles_plot_path if cycles_plot_path else None,
+        'load_values': load_values
     }
+
+
+def insert_load_table(doc, samples_data, decimal_places=3):
+    """Создает таблицу с нагрузками при разных деформациях"""
+    if not samples_data or 'load_values' not in samples_data[0]:
+        return
+    
+    # Определяем заголовки на основе первого образца
+    first_sample = samples_data[0]
+    headers = ["Образец"] + list(first_sample['load_values'].keys())
+    
+    table = doc.add_table(rows=len(samples_data)+1, cols=len(headers))
+    table.style = 'Table Grid'
+    
+    for row in table.rows:
+        for cell in row.cells:
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    
+    # Заголовки таблицы
+    hdr_cells = table.rows[0].cells
+    for i, header in enumerate(headers):
+        p = hdr_cells[i].paragraphs[0]
+        run = p.add_run(header.replace("max_deformation", "макс. деформация"))
+        run.bold = True
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(12)
+        p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    
+    # Данные образцов
+    for row_idx, sample in enumerate(samples_data, start=1):
+        row_cells = table.rows[row_idx].cells
+        
+        # Формируем строку данных
+        data = [sample['name']]
+        for key in headers[1:]:
+            value = sample['load_values'].get(key, 0.0)
+            if "max_deformation" in key:  # Для случая максимальной деформации
+                formatted_value = f"{value:.{decimal_places}f}".replace('.', ',')
+            else:
+                formatted_value = f"{value:.{decimal_places}f}".replace('.', ',')
+            data.append(formatted_value)
+        
+        for col_idx, value in enumerate(data):
+            p = row_cells[col_idx].paragraphs[0]
+            run = p.add_run(value)
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(12)
+            p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    
+    # Добавляем подпись к таблице
+    p = doc.add_paragraph()
+    run = p.add_run("Таблица 1 - Величина удельной нагрузки при относительной деформации, Н/мм²")
+    run.font.name = 'Times New Roman'
+    run.font.size = Pt(12)
+    p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    doc.add_paragraph()  # Добавляем пустой абзац для отступа
+
+
+
+def get_load_at_deformations(Pr, Eps1, deformation_ranges=[(9, 11), (19, 21), (38, 40)]):
+    """Возвращает значения нагрузки при указанных диапазонах деформации"""
+    results = {}
+    
+    for i, (low, high) in enumerate(deformation_ranges):
+        # Находим индексы в заданном диапазоне
+        mask = (Eps1 >= low) & (Eps1 <= high)
+        indices = np.where(mask)[0]
+        
+        if len(indices) > 0:
+            # Берем среднее значение в диапазоне
+            avg_load = np.mean(Pr[indices])
+            level_key = f"{deformation_ranges[i][0]}-{deformation_ranges[i][1]}%"
+            results[level_key] = avg_load
+        else:
+            # Если нет значений в диапазоне, ищем ближайшее
+            if i == len(deformation_ranges) - 1:  # Для последнего диапазона берем максимальную деформацию
+                max_eps_idx = np.argmax(Eps1)
+                if max_eps_idx < len(Pr):
+                    results["max_deformation"] = Pr[max_eps_idx]
+            else:
+                results[f"{deformation_ranges[i][0]}-{deformation_ranges[i][1]}%"] = 0.0
+                
+    return results
+
 
 def add_custom_heading(doc, text, level=1):
     """Добавляет заголовок с ручным форматированием"""
@@ -243,6 +331,7 @@ def add_custom_heading(doc, text, level=1):
         run.font.size = Pt(12)
     
     return p
+
 
 def insert_samples_table(doc, samples_data, decimal_places={'length': 2, 'width': 2, 'height': 2, 'mass': 2}):
     """Создает таблицу с параметрами образцов с настраиваемым количеством знаков после запятой
@@ -299,18 +388,10 @@ def insert_samples_table(doc, samples_data, decimal_places={'length': 2, 'width'
 
 
 def insert_samples_graphs(doc, samples_data):
-    """Вставляет графики с подписями"""
+    """Вставляет графики с подписями в конец документа"""
     figure_counter = 1
-    total_samples = len(samples_data)
-    total_graphs = sum(1 for sample in samples_data for plot_type, _ in [
-        ('full_plot', "График зависимости перемещения и нагрузки от времени"),
-        ('modul_plot', "График модуля упругости"),
-        ('cycles_plot', "Графики циклов нагружения")
-    ] if sample.get(plot_type) and os.path.exists(sample[plot_type]))
     
     for i, sample in enumerate(samples_data):
-        # Добавляем заголовок образца
-
         graphs = [
             ('full_plot', f"График зависимости перемещения и нагрузки от времени образца {sample['name']}"),
             ('modul_plot', f"График модуля упругости образца {sample['name']}"),
@@ -319,6 +400,10 @@ def insert_samples_graphs(doc, samples_data):
         
         for plot_type, description in graphs:
             if sample.get(plot_type) and os.path.exists(sample[plot_type]):
+                # Добавляем разрыв страницы перед каждым графиком (кроме первого)
+                if figure_counter > 1:
+                    doc.add_page_break()
+                
                 # Вставляем график по центру
                 para = doc.add_paragraph()
                 para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -333,8 +418,6 @@ def insert_samples_graphs(doc, samples_data):
                 run.font.name = 'Times New Roman'
                 p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
                 
-                # Добавляем разрыв страницы
-                doc.add_page_break()
                 figure_counter += 1
 
 def fill_template(template_path, samples_data, output_filename):
@@ -346,15 +429,22 @@ def fill_template(template_path, samples_data, output_filename):
         if '{ДАТА}' in paragraph.text:
             paragraph.text = paragraph.text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
     
-    # Вставка таблицы и графиков
+    # Сначала вставляем таблицы в нужные места
     for paragraph in list(doc.paragraphs):
-        if '{TABLE_PLACEHOLDER}' in paragraph.text:
+        if '{LOAD_TABLE_PLACEHOLDER}' in paragraph.text:
+            # Удаляем плейсхолдер и вставляем таблицу нагрузок
+            paragraph.text = paragraph.text.replace('{LOAD_TABLE_PLACEHOLDER}', '')
+            insert_load_table(doc, samples_data)
+            
+        elif '{TABLE_PLACEHOLDER}' in paragraph.text:
+            # Удаляем плейсхолдер и вставляем таблицу параметров
             paragraph.text = paragraph.text.replace('{TABLE_PLACEHOLDER}', '')
             insert_samples_table(doc, samples_data)
-            
-        elif '{GRAPHS_PLACEHOLDER}' in paragraph.text:
-            paragraph.text = paragraph.text.replace('{GRAPHS_PLACEHOLDER}', '')
-            insert_samples_graphs(doc, samples_data)
+    
+    # Затем вставляем все графики в конец документа
+    doc.add_page_break()
+    add_custom_heading(doc, "Графики", level=1)
+    insert_samples_graphs(doc, samples_data)
     
     doc.save(output_filename)
 
