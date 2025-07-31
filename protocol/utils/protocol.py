@@ -12,9 +12,12 @@ import datetime
 import tempfile
 
 # Настройки графиков
-fontsize = 10
+plt.rcParams['font.family'] = 'Times New Roman'  # Установка шрифта Times New Roman
+plt.rcParams['font.style'] = 'normal'  # Обычный шрифт (не italic)
+plt.rcParams['font.size'] = 12  # Размер шрифта 12
+fontsize = 12
 linewidth = 2
-fontweight = 'bold'
+fontweight = 'bold'  # Обычный шрифт (не bold)
 
 def save_plot(fig, filename):
     """Сохраняет график в файл и закрывает фигуру"""
@@ -115,11 +118,11 @@ def data_modul_young(df, width, length, height):
 
 def create_plot_modul_young(E1, Eps1, Pr, name_sample, form_factor):
     """Создает график модуля Юнга"""
-    fig, (ax4, ax5) = plt.subplots(nrows=2, ncols=1, figsize=(10, 8), sharex=True)
+    fig, (ax4, ax5) = plt.subplots(nrows=2, ncols=1, figsize=(10, 6), sharex=True)
 
     ax4.plot(Pr, E1, 'k-', linewidth=linewidth)
-    ax4.set_title(f'{name_sample} | Коэффициент формы q = {form_factor:.2f}', 
-                 fontsize=fontsize, fontweight=fontweight)
+    # ax4.set_title(f'{name_sample} | Коэффициент формы q = {form_factor:.2f}', 
+    #              fontsize=fontsize, fontweight=fontweight)
     ax4.set_xlabel('Удельное давление, МПа', fontsize=fontsize, fontweight=fontweight)
     ax4.set_ylabel('Модуль упругости, МПа', fontsize=fontsize, fontweight=fontweight)
     ax4.grid(True, linestyle='--', alpha=0.6)
@@ -149,8 +152,8 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
     ax1_force.plot(Time, Forse, 'r', label='Нагрузка (Н)', linewidth=linewidth)
     ax1_force.set_ylabel('Нагрузка, Н', fontsize=fontsize, fontweight=fontweight, color='red')
 
-    ax1.set_title(f'{name_sample} | Коэффициент формы q = {form_factor}', 
-                 fontsize=fontsize, fontweight=fontweight)
+    # ax1.set_title(f'{name_sample} | Коэффициент формы q = {form_factor}', 
+    #              fontsize=fontsize, fontweight=fontweight)
 
     plt.tight_layout()
     return save_plot(fig, f"{name_sample}_full_plot.png")
@@ -181,8 +184,8 @@ def plot_cycles_only(Forse, Disp, locs, name_sample, form_factor):
     ax.set_ylabel('Нагрузка, Н', fontsize=fontsize, fontweight=fontweight)
     ax.grid(True)
     ax.legend(loc='lower right')
-    ax.set_title(f'Циклы нагружения\n{name_sample} | q = {form_factor:.2f}',
-                fontsize=fontsize, fontweight=fontweight)
+    # ax.set_title(f'Циклы нагружения\n{name_sample} | q = {form_factor:.2f}',
+    #             fontsize=fontsize, fontweight=fontweight)
 
     plt.tight_layout()
     return save_plot(fig, f"{name_sample}_cycles.png")
@@ -241,11 +244,18 @@ def add_custom_heading(doc, text, level=1):
     
     return p
 
-def insert_samples_table(doc, samples_data):
-    """Создает таблицу с параметрами образцов"""
-    table = doc.add_table(rows=len(samples_data)+1, cols=5)
+def insert_samples_table(doc, samples_data, decimal_places={'length': 2, 'width': 2, 'height': 2, 'mass': 2}):
+    """Создает таблицу с параметрами образцов с настраиваемым количеством знаков после запятой
     
-    # Настройка таблицы
+    Args:
+        doc: Объект документа Word
+        samples_data: Данные образцов
+        decimal_places: Словарь с количеством знаков после запятой для каждого параметра
+            По умолчанию: длина/ширина/высота/ масса - 2 знака
+    """
+    table = doc.add_table(rows=len(samples_data)+1, cols=5)
+    table.style = 'Table Grid'
+    
     for row in table.rows:
         for cell in row.cells:
             cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
@@ -258,48 +268,70 @@ def insert_samples_table(doc, samples_data):
         p = hdr_cells[i].paragraphs[0]
         run = p.add_run(header)
         run.bold = True
+        run.font.name = 'Times New Roman'
+        run.font.size = Pt(12)
         p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     
-    # Данные образцов
+    # Данные образцов с форматированием
     for row_idx, sample in enumerate(samples_data, start=1):
         row_cells = table.rows[row_idx].cells
+        
+        # Форматируем каждое значение с нужным количеством знаков
+        length_str = f"{float(sample['length']):.{decimal_places['length']}f}".replace('.', ',')
+        width_str = f"{float(sample['width']):.{decimal_places['width']}f}".replace('.', ',')
+        height_str = f"{float(sample['height']):.{decimal_places['height']}f}".replace('.', ',')
+        mass_str = f"{float(sample['mass']):.{decimal_places['mass']}f}".replace('.', ',')
+        
         data = [
             sample['name'],
-            f"{sample['length']:.2f}",
-            f"{sample['width']:.2f}",
-            f"{sample['height']:.2f}",
-            f"{sample['mass']:.1f}"
+            length_str,
+            width_str,
+            height_str,
+            mass_str
         ]
         
         for col_idx, value in enumerate(data):
             p = row_cells[col_idx].paragraphs[0]
-            p.add_run(value)
+            run = p.add_run(value)
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(12)
             p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
 
 def insert_samples_graphs(doc, samples_data):
     """Вставляет графики с подписями"""
     figure_counter = 1
-    for sample in samples_data:
+    total_samples = len(samples_data)
+    total_graphs = sum(1 for sample in samples_data for plot_type, _ in [
+        ('full_plot', "График зависимости перемещения и нагрузки от времени"),
+        ('modul_plot', "График модуля упругости"),
+        ('cycles_plot', "Графики циклов нагружения")
+    ] if sample.get(plot_type) and os.path.exists(sample[plot_type]))
+    
+    for i, sample in enumerate(samples_data):
         # Добавляем заголовок образца
-        add_custom_heading(doc, f"Образец {sample['name']}", level=2)
-        
+
         graphs = [
-            ('full_plot', "График зависимости перемещения и нагрузки от времени"),
-            ('modul_plot', "График модуля упругости"),
-            ('cycles_plot', "Графики циклов нагружения")
+            ('full_plot', f"График зависимости перемещения и нагрузки от времени образца {sample['name']}"),
+            ('modul_plot', f"График модуля упругости образца {sample['name']}"),
+            ('cycles_plot', f"Графики циклов нагружения образца {sample['name']}")
         ]
         
         for plot_type, description in graphs:
             if sample.get(plot_type) and os.path.exists(sample[plot_type]):
-                # Добавляем описание графика
+                # Вставляем график по центру
+                para = doc.add_paragraph()
+                para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                run = para.add_run()
+                run.add_picture(sample[plot_type], width=Inches(8.5))
+                
+                # Добавляем подпись под графиком
                 p = doc.add_paragraph()
                 run = p.add_run(f"Рисунок {figure_counter} - {description}")
-                run.italic = True
-                run.font.size = Pt(11)
+                run.italic = False
+                run.font.size = Pt(12)
+                run.font.name = 'Times New Roman'
                 p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-                
-                # Вставляем график
-                doc.add_picture(sample[plot_type], width=Inches(5.5))
                 
                 # Добавляем разрыв страницы
                 doc.add_page_break()
@@ -349,22 +381,32 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
                 doc.add_paragraph('{GRAPHS_PLACEHOLDER}')
                 doc.save(template_path)
         
+        # Убедимся, что названия образцов в Excel - строки
+        data_excel['Образец'] = data_excel['Образец'].astype(str).str.strip()
         data_excel.columns = data_excel.columns.str.strip()
         samples_data = []
         
         for filepath in data_list:
             filename = os.path.basename(filepath)
+            # Извлекаем номер образца из имени файла (удаляем .txt)
             sample_name = os.path.splitext(filename)[0]
-
+            
+            # Ищем соответствие в Excel (убедимся, что сравниваем строки)
             row = data_excel[data_excel['Образец'] == sample_name]
+            
             if row.empty:
                 print(f"Образец {sample_name} не найден в таблице!")
                 continue
 
-            width = row['Ширина'].values[0]
-            length = row['Длина'].values[0]
-            height = row['Высота'].values[0]
-            mass = row['Масса'].values[0]
+            try:
+                width = float(row['Ширина'].values[0].replace(',', '.'))
+                length = float(row['Длина'].values[0].replace(',', '.'))
+                height = float(row['Высота'].values[0].replace(',', '.'))
+                mass = float(row['Масса'].values[0].replace(',', '.'))
+
+            except (IndexError, ValueError) as e:
+                print(f"Ошибка получения параметров для образца {sample_name}: {str(e)}")
+                continue
 
             sample_data = process_sample_file(filepath, sample_name, width, length, height, mass)
             if sample_data:
