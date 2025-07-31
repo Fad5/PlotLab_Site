@@ -389,13 +389,13 @@ def insert_samples_table(doc, samples_data, decimal_places={'length': 2, 'width'
 
 def insert_samples_graphs(doc, samples_data):
     """Вставляет графики с подписями в конец документа"""
-    figure_counter = 1
+    figure_counter = 3
     
     for i, sample in enumerate(samples_data):
         graphs = [
-            ('full_plot', f"График зависимости перемещения и нагрузки от времени образца {sample['name']}"),
-            ('modul_plot', f"График модуля упругости образца {sample['name']}"),
-            ('cycles_plot', f"Графики циклов нагружения образца {sample['name']}")
+            ('full_plot', f"Параметры нагружения при испытании {sample['name']}"),
+            ('modul_plot', f"Зависимость механических характеристик Образца {sample['name']} от величины удельной нагрузки"),
+            ('cycles_plot', f"Диаграмма нагрузка-перемещение образца {sample['name']}")
         ]
         
         for plot_type, description in graphs:
@@ -421,30 +421,33 @@ def insert_samples_graphs(doc, samples_data):
                 figure_counter += 1
 
 def fill_template(template_path, samples_data, output_filename):
-    """Заполняет шаблон документа данными"""
+    """Заполняет шаблон документа данными с правильным расположением элементов"""
     doc = Document(template_path)
     
     # Замена стандартных плейсхолдеров
     for paragraph in doc.paragraphs:
-        if '{ДАТА}' in paragraph.text:
-            paragraph.text = paragraph.text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
-    
-    # Сначала вставляем таблицы в нужные места
-    for paragraph in list(doc.paragraphs):
-        if '{LOAD_TABLE_PLACEHOLDER}' in paragraph.text:
-            # Удаляем плейсхолдер и вставляем таблицу нагрузок
-            paragraph.text = paragraph.text.replace('{LOAD_TABLE_PLACEHOLDER}', '')
+        text = paragraph.text
+        if '{ДАТА}' in text:
+            paragraph.text = text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
+        
+        # Вставляем таблицы в строго определенные места
+        elif '{LOAD_TABLE_PLACEHOLDER}' in text:
+            # Полностью заменяем абзац с плейсхолдером на таблицу
+            paragraph.text = ''
             insert_load_table(doc, samples_data)
             
-        elif '{TABLE_PLACEHOLDER}' in paragraph.text:
-            # Удаляем плейсхолдер и вставляем таблицу параметров
-            paragraph.text = paragraph.text.replace('{TABLE_PLACEHOLDER}', '')
+        elif '{SAMPLES_TABLE_PLACEHOLDER}' in text:
+            paragraph.text = ''
             insert_samples_table(doc, samples_data)
-    
-    # Затем вставляем все графики в конец документа
-    doc.add_page_break()
-    add_custom_heading(doc, "Графики", level=1)
-    insert_samples_graphs(doc, samples_data)
+            
+        elif '{GRAPHS_PLACEHOLDER}' in text:
+            paragraph.text = ''
+            # Добавляем заголовок перед графиками
+            p = doc.add_paragraph()
+            run = p.add_run("Графики")
+            run.bold = True
+            run.font.size = Pt(14)
+            insert_samples_graphs(doc, samples_data)
     
     doc.save(output_filename)
 
