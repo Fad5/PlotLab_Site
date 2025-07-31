@@ -10,6 +10,12 @@ from .forms import AnalysisForm
 from .models import AnalysisTask
 from .utils.protocol import genaretion_plot
 import pandas as pd
+from django.shortcuts import render
+from django.http import HttpResponse
+import pandas as pd
+from docxtpl import DocxTemplate
+import os
+from io import BytesIO
 
 class UploadView(FormView):
     template_name = 'protocol/upload.html'
@@ -115,3 +121,67 @@ def download_report(request, pk):
         response['Content-Disposition'] = f'attachment; filename="elastic_modulus_report.docx"'
         return response
     return redirect('analysis_results', pk=pk)
+
+
+def protocol(request):
+    return render(request, 'protocol/protocol.html')
+
+
+
+def Press_Protocols_Stubs(request):
+    if request.method == 'POST':
+            # Получаем загруженные файлы
+            excel_file = request.FILES['excelFile']
+            doc_file = request.FILES['docFile']
+            
+            # Создаем временную директорию
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Сохраняем файлы во временную директорию
+                excel_path = os.path.join(temp_dir, excel_file.name)
+                doc_path = os.path.join(temp_dir, doc_file.name)
+                
+                with open(excel_path, 'wb+') as f:
+                    for chunk in excel_file.chunks():
+                        f.write(chunk)
+                
+                with open(doc_path, 'wb+') as f:
+                    for chunk in doc_file.chunks():
+                        f.write(chunk)
+                
+                # Читаем Excel файл
+                df = pd.read_excel(excel_path)
+                
+                # Создаем архив в памяти
+                zip_buffer = BytesIO()
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    # Обрабатываем каждую строку в Excel
+                    for index, row in df.iterrows():
+                        # Создаем контекст для шаблона
+                        context = {
+                            'Образец': row['Образец'],
+                            'Ширина': row['Ширина'],
+                            'Длина': row['Длина'],
+                            'Высота': row['Высота'],
+                            'Масса': row['Масса'],
+                            'Номер_протокола': row['Номер протокола'],
+                            'Дата': row['Дата']
+                        }
+                        
+                        # Загружаем шаблон
+                        doc = DocxTemplate(doc_path)
+                        doc.render(context)
+                        
+                        # Сохраняем документ во временный файл
+                        temp_doc_path = os.path.join(temp_dir, f"Протокол_{row['Образец']}.docx")
+                        doc.save(temp_doc_path)
+                        
+                        # Добавляем документ в архив
+                        zipf.write(temp_doc_path, os.path.basename(temp_doc_path))
+                
+                # Возвращаем архив пользователю
+                zip_buffer.seek(0)
+                response = HttpResponse(zip_buffer, content_type='application/zip')
+                response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
+                return response
+    
+    return render(request, 'protocol/3.html')

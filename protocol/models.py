@@ -18,3 +18,4 @@ class AnalysisTask(models.Model):
     
     def __str__(self):
         return f"Анализ #{self.id} - {self.get_status_display()}"
+    
