@@ -1,8 +1,8 @@
 from django.urls import path
-from protocol import views
+from .views import UploadView, ResultsView, download_report
 
 urlpatterns = [
-    path('',views.protocol, name='protocol'),
-    path('vibra_protocol/',views.vibra_protocol, name='vibra_protocol'),
-    path('press_protocol/',views.press_protocol, name='press_protocol'),
+    path('', UploadView.as_view(), name='upload'),
+    path('results/<uuid:pk>/', ResultsView.as_view(), name='analysis_results'),
+    path('download/<uuid:pk>/', download_report, name='download_report'),
 ]

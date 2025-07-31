@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from scipy.ndimage import median_filter, gaussian_filter1d
-from scipy.signal import find_peaks
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path 

@@ -1,0 +1,19 @@
+{% extends "analysis/base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Анализ модуля упругости</h2>
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_data_archive">Архив с данными испытаний (.zip):</label>
+            {{ form.data_archive }}
+        </div>
+        <div class="form-group mt-3">
+            <label for="id_excel_file">Excel файл с параметрами образцов:</label>
+            {{ form.excel_file }}
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Загрузить и проанализировать</button>
+    </form>
+</div>
+{% endblock %}

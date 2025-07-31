@@ -1,0 +1,18 @@
+{% extends "analysis/base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Результаты анализа #{{ task.id }}</h2>
+    <p>Статус: {{ task.get_status_display }}</p>
+    
+    {% if task.status == 'completed' %}
+        <a href="{% url 'download_report' pk=task.id %}" class="btn btn-success">
+            Скачать отчет
+        </a>
+    {% elif task.status == 'failed' %}
+        <div class="alert alert-danger mt-3">
+            Произошла ошибка при обработке данных
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
