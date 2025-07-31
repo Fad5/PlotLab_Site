@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'analysis.apps.AnalysisConfig',
     'help.apps.HelpConfig',
+    'protocol.apps.ProtocolConfig',
 ]
 
 MIDDLEWARE = [
