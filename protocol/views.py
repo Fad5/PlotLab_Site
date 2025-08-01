@@ -9,6 +9,7 @@ from django.contrib import messages
 from .forms import AnalysisForm
 from .models import AnalysisTask
 from .utils.protocol import genaretion_plot
+from .utils.help_fun import reformat_date, dolg, generate_random_float
 import pandas as pd
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -16,6 +17,8 @@ import pandas as pd
 from docxtpl import DocxTemplate
 import os
 from io import BytesIO
+from django.core.files.uploadedfile import UploadedFile
+from django.conf import settings
 
 class UploadView(FormView):
     template_name = 'protocol/upload.html'
@@ -127,61 +130,124 @@ def protocol(request):
     return render(request, 'protocol/protocol.html')
 
 
-
 def Press_Protocols_Stubs(request):
     if request.method == 'POST':
+ 
             # Получаем загруженные файлы
             excel_file = request.FILES['excelFile']
-            doc_file = request.FILES['docFile']
+
+            # Получаем данные с полей 
+            percent_10_min = float(request.POST.get('percent_10_min'))
+            percent_10_max = float(request.POST.get('percent_10_max'))
+            percent_20_min = float(request.POST.get('percent_20_min'))
+            percent_20_max = float(request.POST.get('percent_20_max'))
+            percent_40_min = float(request.POST.get('percent_40_min'))
+            percent_40_max = float(request.POST.get('percent_40_max'))
+
+            print(percent_10_min, 'percent_10_min')
+
+            # Генерация случайного числа 
+            precent_10  = generate_random_float(percent_10_min, percent_10_max)
+            precent_20  = generate_random_float(percent_20_min, percent_20_max)
+            precent_40  = generate_random_float(percent_40_min, percent_40_max)
+            
+
+
+            # Обработка шаблона документа
+            if 'docFile' in request.FILES:
+                doc_file = request.FILES['docFile']
+            else:
+                # Используем шаблон по умолчанию
+                default_template_path = os.path.join('templates_doc', 'template_press.docx')
+                doc_file = open(default_template_path, 'rb')
             
             # Создаем временную директорию
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Сохраняем файлы во временную директорию
                 excel_path = os.path.join(temp_dir, excel_file.name)
-                doc_path = os.path.join(temp_dir, doc_file.name)
                 
+                # Для doc_file используем либо имя загруженного файла, либо имя файла по умолчанию
+                if isinstance(doc_file, UploadedFile):  # Если это загруженный файл
+                    doc_path = os.path.join(temp_dir, doc_file.name)
+                else:  # Если это файл по умолчанию
+                    doc_path = os.path.join(temp_dir, 'template_press.docx')
+                
+                # Сохраняем excel файл
                 with open(excel_path, 'wb+') as f:
                     for chunk in excel_file.chunks():
                         f.write(chunk)
                 
+                # Сохраняем doc файл
                 with open(doc_path, 'wb+') as f:
-                    for chunk in doc_file.chunks():
-                        f.write(chunk)
+                    if isinstance(doc_file, UploadedFile):
+                        for chunk in doc_file.chunks():
+                            f.write(chunk)
+                    else:
+                        f.write(doc_file.read())
+                        doc_file.close()  # Закрываем файл по умолчанию после чтения
                 
                 # Читаем Excel файл
                 df = pd.read_excel(excel_path)
                 
                 # Создаем архив в памяти
                 zip_buffer = BytesIO()
-                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                    # Обрабатываем каждую строку в Excel
-                    for index, row in df.iterrows():
-                        # Создаем контекст для шаблона
-                        context = {
-                            'Образец': row['Образец'],
-                            'Ширина': row['Ширина'],
-                            'Длина': row['Длина'],
-                            'Высота': row['Высота'],
-                            'Масса': row['Масса'],
-                            'Номер_протокола': row['Номер протокола'],
-                            'Дата': row['Дата']
-                        }
-                        
-                        # Загружаем шаблон
-                        doc = DocxTemplate(doc_path)
-                        doc.render(context)
-                        
-                        # Сохраняем документ во временный файл
-                        temp_doc_path = os.path.join(temp_dir, f"Протокол_{row['Образец']}.docx")
-                        doc.save(temp_doc_path)
-                        
-                        # Добавляем документ в архив
-                        zipf.write(temp_doc_path, os.path.basename(temp_doc_path))
                 
-                # Возвращаем архив пользователю
-                zip_buffer.seek(0)
-                response = HttpResponse(zip_buffer, content_type='application/zip')
-                response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
-                return response
+                try:
+                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                        # Обрабатываем каждую строку в Excel
+                        for index, row in df.iterrows():
+                            # Получаем дату с excel файла
+                            excel_data = row['Дата']
+                            # Преобразуем дату 03.03.2000 в 3 марта 2000г.
+                            data_prot = reformat_date(excel_data)
+                            # Отображаем правильную должность в зависимости от даты 
+                            dolg_ = dolg(excel_data)
+                            print(dolg_)
+
+                            context = {
+                                'name_sample': row['Образец'],
+                                'width': row['Ширина'],
+                                'length': row['Длина'],
+                                'height': row['Высота'],
+                                'mass': row['Масса'],
+                                'num_prot': row['Номер протокола'],
+                                'data_prot': data_prot,
+                                'dol': dolg_,
+                                'precent_10':precent_10,
+                                'precent_20':precent_20,
+                                'precent_40':precent_40,
+
+                                
+                            }
+                            
+                            # Загружаем шаблон
+                            doc = DocxTemplate(doc_path)
+                            doc.render(context)
+                            
+                            name_protocol = str(row['Номер протокола']).split('/')
+                            if len(name_protocol) == 2:
+                                name_protocol = name_protocol[0] + '-' + name_protocol[1]
+                            else:
+                                name_protocol = name_protocol[0]
+                            
+                            # Сохраняем документ во временный файл
+                            temp_doc_path = os.path.join(temp_dir, f"{name_protocol}.docx")
+                            doc.save(temp_doc_path)
+                            
+                            # Добавляем документ в архив
+                            zipf.write(temp_doc_path, os.path.basename(temp_doc_path))
+                    
+                    # После выхода из блока with zipfile.ZipFile, буфер остается открытым
+                    zip_buffer.seek(0)
+                    
+                    # Создаем ответ
+                    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+                    response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
+                    return response
+                
+                finally:
+                    # Явно закрываем буфер после использования
+                    zip_buffer.close()
+        
     
     return render(request, 'protocol/3.html')

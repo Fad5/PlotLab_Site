@@ -1,5 +1,6 @@
 {% extends "analysis/base.html" %}
 
+{% block page_title %}Заглушки пресс{% endblock %}
 
 {% block style %}
     <style>
@@ -56,8 +57,32 @@
             border-left: 4px solid #ffd600;
             margin: 20px 0;
         }
+        .percentage-controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .percentage-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .percentage-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .range-inputs {
+            display: flex;
+            gap: 10px;
+        }
+        .range-inputs input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
         </style>
-
 {% endblock %}
 
 {% block content %}
@@ -68,15 +93,39 @@
         
         <div class="form-group">
             <label for="docFile">Шаблон протокола (.docx):</label>
-            <input class="form-control-file" type="file" name="docFile" id="docFile" accept=".docx" required>
+            <input class="form-control-file" type="file" name="docFile" id="docFile" accept=".docx">
         </div>
         
         <div class="form-group mt-3">
             <label for="excelFile">Данные образцов (.xlsx):</label>
             <input class="form-control-file" type="file" name="excelFile" id="excelFile" accept=".xlsx,.xls" required>
-            <small class="form-text text-muted">
-                Файл должен содержать колонки: Образец, Ширина, Длина, Высота, Масса, Номер протокола, Дата
-            </small>
+        </div>
+
+        <!-- Добавленные поля для процентных значений -->
+        <div class="percentage-controls">
+            <div class="percentage-group">
+                <label>10% сжатие:</label>
+                <div class="range-inputs">
+                    <input type="number" name="percent_10_min" placeholder="От" step="0.01" required>
+                    <input type="number" name="percent_10_max" placeholder="До" step="0.01" required>
+                </div>
+            </div>
+            
+            <div class="percentage-group">
+                <label>20% сжатие:</label>
+                <div class="range-inputs">
+                    <input type="number" name="percent_20_min" placeholder="От" step="0.01" required>
+                    <input type="number" name="percent_20_max" placeholder="До" step="0.01" required>
+                </div>
+            </div>
+            
+            <div class="percentage-group">
+                <label>40% сжатие:</label>
+                <div class="range-inputs">
+                    <input type="number" name="percent_40_min" placeholder="От" step="0.01" required>
+                    <input type="number" name="percent_40_max" placeholder="До" step="0.01" required>
+                </div>
+            </div>
         </div>
         
         <button type="submit" class="btn btn-primary mt-3">Сгенерировать протоколы</button>
