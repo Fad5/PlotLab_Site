@@ -143,8 +143,13 @@ def Press_Protocols_Stubs(request):
             percent_20_max = float(request.POST.get('percent_20_max'))
             percent_40_min = float(request.POST.get('percent_40_min'))
             percent_40_max = float(request.POST.get('percent_40_max'))
+            
+            sample_type = request.POST.get('sample_type')
 
-            print(percent_10_min, 'percent_10_min')
+            if sample_type  == 'square_plate':
+                type_sample = 'Квадратная пластина'
+            if sample_type  == 'rectangular_plate':
+                type_sample = 'Прямоугольная пластина'
 
             # Генерация случайного числа 
             precent_10  = generate_random_float(percent_10_min, percent_10_max)
@@ -206,6 +211,7 @@ def Press_Protocols_Stubs(request):
 
                             context = {
                                 'name_sample': row['Образец'],
+                                'type_sample': type_sample,
                                 'width': row['Ширина'],
                                 'length': row['Длина'],
                                 'height': row['Высота'],
@@ -216,8 +222,6 @@ def Press_Protocols_Stubs(request):
                                 'precent_10':precent_10,
                                 'precent_20':precent_20,
                                 'precent_40':precent_40,
-
-                                
                             }
                             
                             # Загружаем шаблон
@@ -251,3 +255,18 @@ def Press_Protocols_Stubs(request):
         
     
     return render(request, 'protocol/3.html')
+
+
+def download_template(request):
+    # Путь к файлу шаблона
+    template_path = os.path.join(settings.BASE_DIR,'templates_doc', 'template_press.docx')
+    print(template_path)
+    # Открываем файл и возвращаем как ответ
+    try:
+        file = open(template_path, 'rb')
+        response = FileResponse(file)
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        response['Content-Disposition'] = 'attachment; filename="protocol_template.docx"'
+        return response
+    except FileNotFoundError:
+        return HttpResponse("Файл шаблона не найден", status=404)
