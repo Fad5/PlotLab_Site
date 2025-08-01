@@ -1,5 +1,65 @@
 {% extends "analysis/base.html" %}
 
+
+{% block style %}
+    <style>
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h2 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        .requirement {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .process-step {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .step-number {
+            background-color: #3498db;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex-grow: 1;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background-color: #fffde7;
+            padding: 15px;
+            border-left: 4px solid #ffd600;
+            margin: 20px 0;
+        }
+        </style>
+
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <h2>Генерация протоколов</h2>
@@ -22,4 +82,183 @@
         <button type="submit" class="btn btn-primary mt-3">Сгенерировать протоколы</button>
     </form>
 </div>
+
+
+    <h1>Инструкция: </h1>
+
+    <h2>1. Подготовка файлов</h2>
+    
+    <div class="requirement">
+        <h3>Требования к Excel-файлу:</h3>
+        <p>Файл должен содержать следующие обязательные столбцы:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Название столбца</th>
+                    <th>Описание</th>
+                    <th>Формат</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Образец</strong></td>
+                    <td>Идентификатор образца</td>
+                    <td>Текст (будет использован в имени файла)</td>
+                </tr>
+                <tr>
+                    <td><strong>Ширина</strong></td>
+                    <td>Ширина образца</td>
+                    <td>Числовое значение</td>
+                </tr>
+                <tr>
+                    <td><strong>Длина</strong></td>
+                    <td>Длина образца</td>
+                    <td>Числовое значение</td>
+                </tr>
+                <tr>
+                    <td><strong>Высота</strong></td>
+                    <td>Высота образца</td>
+                    <td>Числовое значение</td>
+                </tr>
+                <tr>
+                    <td><strong>Масса</strong></td>
+                    <td>Масса образца</td>
+                    <td>Числовое значение</td>
+                </tr>
+                <tr>
+                    <td><strong>Номер протокола</strong></td>
+                    <td>Номер протокола</td>
+                    <td>Текст или число</td>
+                </tr>
+                <tr>
+                    <td><strong>Дата</strong></td>
+                    <td>Дата проведения испытаний</td>
+                    <td>Дата в любом формате</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="requirement">
+        <h3>Требования к шаблону DOCX:</h3>
+        <ul>
+            <li>Должен быть создан в Microsoft Word или совместимом редакторе</li>
+            <li>Должен содержать поля для подстановки в формате: <code>{{ Образец }}</code>, <code>{{ Ширина }}</code> и т.д.</li>
+            <li>Поддерживаются все стандартные элементы Word (таблицы, изображения, форматирование)</li>
+        </ul>
+    </div>
+
+    <div class="note">
+        <strong>Пример структуры шаблона:</strong>
+        <div class="code">
+            ПРОТОКОЛ №{{ Номер_протокола }}<br>
+            Дата: {{ Дата }}<br><br>
+            Наименование образца: {{ Образец }}<br>
+            Параметры:<br>
+            - Ширина: {{ Ширина }} мм<br>
+            - Длина: {{ Длина }} мм<br>
+            - Высота: {{ Высота }} мм<br>
+            - Масса: {{ Масса }} г
+        </div>
+    </div>
+
+    <h2>2. Процесс работы</h2>
+
+    <div class="process-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+            <strong>Загрузка файлов через форму</strong>
+            <p>На странице генерации:</p>
+            <ol>
+                <li>Выберите файл шаблона (.docx)</li>
+                <li>Выберите файл с данными (.xlsx или .xls)</li>
+                <li>Нажмите кнопку "Сгенерировать протоколы"</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="process-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+            <strong>Обработка файлов системой</strong>
+            <p>Система выполняет следующие действия:</p>
+            <ul>
+                <li>Проверяет наличие всех обязательных столбцов в Excel-файле</li>
+                <li>Читает данные из каждой строки Excel-файла</li>
+                <li>Для каждой строки создает отдельный протокол, подставляя данные в шаблон</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="process-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+            <strong>Формирование результата</strong>
+            <p>После обработки всех строк:</p>
+            <ul>
+                <li>Все сгенерированные протоколы упаковываются в ZIP-архив</li>
+                <li>Архив автоматически загружается на ваш компьютер</li>
+                <li>Имена файлов в архиве: <code>Протокол_[Образец].docx</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>3. Пример использования</h2>
+
+    <div class="note">
+        <strong>Пример Excel-файла:</strong>
+        <table>
+            <thead>
+                <tr>
+                    <th>Образец</th>
+                    <th>Ширина</th>
+                    <th>Длина</th>
+                    <th>Высота</th>
+                    <th>Масса</th>
+                    <th>Номер протокола</th>
+                    <th>Дата</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>sample_1</td>
+                    <td>10.2</td>
+                    <td>15.5</td>
+                    <td>5.1</td>
+                    <td>25.4</td>
+                    <td>2023-001</td>
+                    <td>01.01.2023</td>
+                </tr>
+                <tr>
+                    <td>sample_2</td>
+                    <td>9.8</td>
+                    <td>14.9</td>
+                    <td>4.9</td>
+                    <td>24.1</td>
+                    <td>2023-002</td>
+                    <td>02.01.2023</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">
+        <strong>Результат:</strong>
+        <p>Будет создан ZIP-архив, содержащий два файла:</p>
+        <ul>
+            <li><code>Протокол_sample_1.docx</code></li>
+            <li><code>Протокол_sample_2.docx</code></li>
+        </ul>
+    </div>
+
+    <h2>4. Ограничения и рекомендации</h2>
+
+    <div class="requirement">
+        <ul>
+            <li>Максимальное количество строк в Excel-файле: 100</li>
+            <li>Размер шаблона DOCX не должен превышать 5 МБ</li>
+            <li>Для специальных форматов дат используйте предварительное форматирование в Excel</li>
+            <li>Избегайте специальных символов в именах образцов</li>
+        </ul>
+    </div>
 {% endblock %}
