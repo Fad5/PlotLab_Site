@@ -1,8 +1,12 @@
 {% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}Анализ модуля упругости{% endblock %}
 
 {% block style %}
     <style>
-        h1, h2, h3 {
+        /* Основные стили */
+        h1, h2, h3, h4 {
             color: #2c3e50;
         }
         h2 {
@@ -10,6 +14,86 @@
             padding-bottom: 5px;
             margin-top: 30px;
         }
+        
+        /* Контейнер формы */
+        .form-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        /* Секция скачивания шаблона */
+        .download-section {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.3s;
+            width: fit-content;
+        }
+        .download-btn:hover {
+            background-color: #2980b9;
+            color: white;
+        }
+        
+        /* Форма и элементы управления */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .form-control-file {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            transition: border-color 0.3s;
+        }
+        .form-control-file:hover {
+            border-color: #3498db;
+        }
+        
+        /* Кнопка отправки */
+        .submit-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Остальные стили */
         .requirement {
             background-color: #f8f9fa;
             border-left: 4px solid #3498db;
@@ -33,8 +117,11 @@
             margin-right: 15px;
             flex-shrink: 0;
         }
-        .step-content {
-            flex-grow: 1;
+        .note {
+            background-color: #fffde7;
+            padding: 15px;
+            border-left: 4px solid #ffd600;
+            margin: 20px 0;
         }
         table {
             width: 100%;
@@ -49,167 +136,164 @@
         th {
             background-color: #f2f2f2;
         }
-        .note {
-            background-color: #fffde7;
-            padding: 15px;
-            border-left: 4px solid #ffd600;
-            margin: 20px 0;
-        }
-        </style>
-
+    </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <form method="post" enctype="multipart/form-data" class="mt-4">
-        {% csrf_token %}
+    <div class="form-container">
+        <h2>Анализ модуля упругости</h2>
         
-        <div class="form-group">
-            <label for="id_data_archive">Архив с данными испытаний (.zip):</label>
-            {{ form.data_archive }}
+        <!-- Секция скачивания шаблонов -->
+        <div class="download-section">
+            <h4>Скачать шаблоны</h4>
+            
+            <p>Используйте стандартные шаблоны для подготовки данных:</p>
+            <a href="{% url 'download_excel_press_union' %}" class="download-btn">
+                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
+            </a>
+            <a href="{% url 'download_rar_press_union' %}" class="download-btn">
+                <i class="fas fa-file-archive"></i> Пример данных (.zip)
+            </a>
         </div>
-        <div class="form-group mt-3">
-            <label for="id_excel_file">Excel файл с параметрами образцов:</label>
-            {{ form.excel_file }}
-        </div>
-        <button type="submit" class="btn btn-primary mt-3">Загрузить и проанализировать</button>
-    </form>
+        
+        <!-- Форма загрузки файлов -->
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_data_archive">Архив с данными испытаний (.zip):</label>
+                <input class="form-control-file" type="file" name="data_archive" id="id_data_archive" accept=".zip" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="id_excel_file">Excel файл с параметрами образцов:</label>
+                <input class="form-control-file" type="file" name="excel_file" id="id_excel_file" accept=".xlsx,.xls" required>
+            </div>
+            
+            <button type="submit" class="submit-btn">
+                <i class="fas fa-chart-line"></i> Загрузить и проанализировать
+            </button>
+        </form>
+    </div>
 </div>
 
+<!-- Инструкция -->
+<h1>Инструкция по использованию системы анализа данных</h1>
 
-    <h1>Инструкция:</h1>
+<h2>1. Подготовка файлов</h2>
 
-    <h2>1.Подготовка файлов</h2>
-    
-    <div class="requirement">
-        <h3>Требования к Excel-файлу:</h3>
-        <p>Файл должен содержать следующие столбцы:</p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Название столбца</th>
-                    <th>Описание</th>
-                    <th>Формат</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Образец</strong></td>
-                    <td>Имя образца</td>
-                    <td>Должно точно соответствовать именам txt-файлов (без расширения)</td>
-                </tr>
-                <tr>
-                    <td><strong>Ширина</strong></td>
-                    <td>Ширина образца</td>
-                    <td>В миллиметрах (число)</td>
-                </tr>
-                <tr>
-                    <td><strong>Длина</strong></td>
-                    <td>Длина образца</td>
-                    <td>В миллиметрах (число)</td>
-                </tr>
-                <tr>
-                    <td><strong>Высота</strong></td>
-                    <td>Высота образца</td>
-                    <td>В миллиметрах (число)</td>
-                </tr>
-                <tr>
-                    <td><strong>Масса</strong></td>
-                    <td>Масса образца</td>
-                    <td>В граммах (число)</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="requirement">
-        <h3>Требования к ZIP-архиву:</h3>
-        <ul>
-            <li>Архив должен содержать текстовые файлы с расширением <strong>.txt</strong></li>
-            <li>Имена файлов должны точно соответствовать значениям в столбце "Образец" Excel-файла</li>
-            <li>Файлы должны содержать данные испытаний в TAB-разделенном формате</li>
-            <li>Рекомендуется не более 15 файлов в одном архиве</li>
-        </ul>
-    </div>
-
-    <div class="note">
-        <strong>Примечание:</strong> Для корректной обработки убедитесь, что:
-        <ul>
-            <li>В именах файлов и образцов нет опечаток</li>
-            <li>Все числовые значения в Excel введены правильно (используйте точку как десятичный разделитель)</li>
-            <li>ZIP-архив не содержит вложенных папок</li>
-        </ul>
-    </div>
-
-    <h2>2.Процесс работы</h2>
-
-    <div class="process-step">
-        <div class="step-number">1</div>
-        <div class="step-content">
-            <strong>Пользователь загружает ZIP-архив и Excel-файл через форму</strong>
-            <p>На странице загрузки выберите соответствующие файлы и нажмите кнопку "Загрузить".</p>
-        </div>
-    </div>
-
-    <div class="process-step">
-        <div class="step-number">2</div>
-        <div class="step-content">
-            <strong>Система проверяет файлы на соответствие требованиям</strong>
-            <p>Проверяется:
-                <ul>
-                    <li>Наличие всех обязательных столбцов в Excel</li>
-                    <li>Соответствие имен файлов и образцов</li>
-                    <li>Корректность числовых значений</li>
-                    <li>Наличие TXT-файлов в архиве</li>
-                </ul>
-            </p>
-        </div>
-    </div>
-
-    <div class="process-step">
-        <div class="step-number">3</div>
-        <div class="step-content">
-            <strong>Если проверка пройдена:</strong>
-            <div style="margin-left: 20px;">
-                <p><strong>Создается задача обработки</strong> - система начинает обработку файлов</p>
-                <p><strong>Извлекаются данные из архива</strong> - временные файлы сохраняются для обработки</p>
-                <p><strong>Читаются параметры из Excel</strong> - система получает геометрические параметры и массу каждого образца</p>
-                <p><strong>Генерируются графики и таблицы</strong> - создаются три типа графиков для каждого образца</p>
-                <p><strong>Формируется итоговый отчет в формате Word</strong> - все данные объединяются в единый документ</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="note">
-        <strong>Важно!</strong> Время обработки зависит от количества образцов. При большом количестве файлов обработка может занять несколько минут. Не закрывайте страницу до завершения процесса.
-    </div>
-
-    <h3>Пример корректной структуры файлов:</h3>
+<div class="requirement">
+    <h3>Требования к Excel-файлу:</h3>
+    <p>Файл должен содержать следующие обязательные столбцы:</p>
     <table>
         <thead>
             <tr>
-                <th>Excel-файл</th>
-                <th>ZIP-архив</th>
+                <th>Название столбца</th>
+                <th>Описание</th>
+                <th>Формат</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>
-                    <pre>
-Образец | Ширина | Длина | Высота | Масса
---------|--------|-------|--------|------
-sample1 | 10.2   | 15.5  | 5.1    | 25.4
-sample2 | 9.8    | 14.9  | 4.9    | 24.1
-                    </pre>
-                </td>
-                <td>
-                    <pre>
-data.zip
-├── sample1.txt
-└── sample2.txt
-                    </pre>
-                </td>
+                <td><strong>Образец</strong></td>
+                <td>Идентификатор образца</td>
+                <td>Текст (будет использован в имени файла)</td>
+            </tr>
+            <tr>
+                <td><strong>Ширина</strong></td>
+                <td>Ширина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Длина</strong></td>
+                <td>Длина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Высота</strong></td>
+                <td>Высота образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Масса</strong></td>
+                <td>Масса образца</td>
+                <td>Числовое значение (г)</td>
             </tr>
         </tbody>
     </table>
+</div>
+
+<div class="requirement">
+    <h3>Требования к ZIP-архиву:</h3>
+    <ul>
+        <li>Архив должен содержать текстовые файлы с расширением <strong>.txt</strong></li>
+        <li>Имена файлов должны точно соответствовать значениям в столбце "Образец" Excel-файла</li>
+        <li>Файлы должны содержать данные испытаний в TAB-разделенном формате</li>
+        <li>Рекомендуется не более 15 файлов в одном архиве</li>
+    </ul>
+</div>
+
+<div class="note">
+    <strong>Пример структуры данных:</strong>
+    <div class="code">
+        Образец | Ширина | Длина | Высота | Масса<br>
+        --------|--------|-------|--------|------<br>
+        sample1 | 10.2   | 15.5  | 5.1    | 25.4<br>
+        sample2 | 9.8    | 14.9  | 4.9    | 24.1
+    </div>
+</div>
+
+<h2>2. Процесс работы</h2>
+
+<div class="process-step">
+    <div class="step-number">1</div>
+    <div class="step-content">
+        <strong>Загрузка файлов через форму</strong>
+        <p>На странице анализа:</p>
+        <ol>
+            <li>Выберите архив с данными (.zip)</li>
+            <li>Выберите файл с параметрами (.xlsx)</li>
+            <li>Нажмите кнопку "Загрузить и проанализировать"</li>
+        </ol>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">2</div>
+    <div class="step-content">
+        <strong>Обработка файлов системой</strong>
+        <p>Система выполняет следующие действия:</p>
+        <ul>
+            <li>Проверяет наличие всех обязательных столбцов в Excel-файле</li>
+            <li>Сопоставляет файлы данных с параметрами образцов</li>
+            <li>Вычисляет модуль упругости для каждого образца</li>
+        </ul>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+        <strong>Формирование результата</strong>
+        <p>После обработки:</p>
+        <ul>
+            <li>Создается отчет в формате Word с результатами анализа</li>
+            <li>Формируются графики зависимостей для каждого образца</li>
+            <li>Результаты автоматически загружаются на ваш компьютер</li>
+        </ul>
+    </div>
+</div>
+
+<h2>3. Ограничения и рекомендации</h2>
+
+<div class="requirement">
+    <ul>
+        <li>Максимальный размер архива: 10 МБ</li>
+        <li>Максимальное количество образцов: 15</li>
+        <li>Для точных результатов убедитесь в правильности измерений</li>
+        <li>Избегайте специальных символов в именах образцов</li>
+    </ul>
+</div>
+
 {% endblock %}

@@ -270,3 +270,16 @@ def download_template(request):
         return response
     except FileNotFoundError:
         return HttpResponse("Файл шаблона не найден", status=404)
+    
+
+def download_excel_press(request):
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'excel_press.xlsx')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
+def download_rar_press_union(request):
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'union.zip')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
+def download_excel_press_union(request):
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'union.xlsx')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
