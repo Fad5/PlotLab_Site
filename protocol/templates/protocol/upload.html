@@ -1,7 +1,7 @@
 {% extends "analysis/base.html" %}
 {% load static %}
 
-{% block page_title %}Анализ модуля упругости{% endblock %}
+{% block page_title %}Протокол объединённый пресс{% endblock %}
 
 {% block style %}
     <style>
@@ -140,22 +140,11 @@
 {% endblock %}
 
 {% block content %}
+<h1>Генерация протокола:</h1>
 <div class="container">
-    <div class="form-container">
-        <h2>Анализ модуля упругости</h2>
-        
-        <!-- Секция скачивания шаблонов -->
-        <div class="download-section">
-            <h4>Скачать шаблоны</h4>
-            
-            <p>Используйте стандартные шаблоны для подготовки данных:</p>
-            <a href="{% url 'download_excel_press_union' %}" class="download-btn">
-                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
-            </a>
-            <a href="{% url 'download_rar_press_union' %}" class="download-btn">
-                <i class="fas fa-file-archive"></i> Пример данных (.zip)
-            </a>
-        </div>
+    
+    <div class="form-container">   
+
         
         <!-- Форма загрузки файлов -->
         <form method="post" enctype="multipart/form-data">
@@ -172,14 +161,27 @@
             </div>
             
             <button type="submit" class="submit-btn">
-                <i class="fas fa-chart-line"></i> Загрузить и проанализировать
+                <i class="fas fa-chart-line"></i> Загрузить
             </button>
         </form>
+        
     </div>
+            <!-- Секция скачивания шаблонов -->
+        <div class="download-section">
+            <h4>Скачать шаблоны</h4>
+            
+            <p>Используйте стандартные шаблоны для подготовки данных:</p>
+            <a href="{% url 'download_excel_press_union' %}" class="download-btn">
+                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
+            </a>
+            <a href="{% url 'download_rar_press_union' %}" class="download-btn">
+                <i class="fas fa-file-archive"></i> Пример данных (.zip)
+            </a>
+        </div>
 </div>
 
 <!-- Инструкция -->
-<h1>Инструкция по использованию системы анализа данных</h1>
+<h1>Инструкция по использованию:</h1>
 
 <h2>1. Подготовка файлов</h2>
 
@@ -236,13 +238,37 @@
 
 <div class="note">
     <strong>Пример структуры данных:</strong>
-    <div class="code">
-        Образец | Ширина | Длина | Высота | Масса<br>
-        --------|--------|-------|--------|------<br>
-        sample1 | 10.2   | 15.5  | 5.1    | 25.4<br>
-        sample2 | 9.8    | 14.9  | 4.9    | 24.1
+    <div class="example-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Образец</th>
+                    <th>Ширина</th>
+                    <th>Длина</th>
+                    <th>Высота</th>
+                    <th>Масса</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>sample1</td>
+                    <td>10.2</td>
+                    <td>15.5</td>
+                    <td>5.1</td>
+                    <td>25.4</td>
+                </tr>
+                <tr>
+                    <td>sample2</td>
+                    <td>9.8</td>
+                    <td>14.9</td>
+                    <td>4.9</td>
+                    <td>24.1</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
+
 
 <h2>2. Процесс работы</h2>
 

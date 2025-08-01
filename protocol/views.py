@@ -258,6 +258,10 @@ def Press_Protocols_Stubs(request):
 
 
 def download_template(request):
+    """
+    Функция для скачивания doc-шаблона,
+    заглушки пресс
+    """
     # Путь к файлу шаблона
     template_path = os.path.join(settings.BASE_DIR,'templates_doc', 'template_press.docx')
     print(template_path)
@@ -270,16 +274,27 @@ def download_template(request):
         return response
     except FileNotFoundError:
         return HttpResponse("Файл шаблона не найден", status=404)
-    
 
 def download_excel_press(request):
+    """
+    Функция для скачивания excel файла в котором находятся геометрические харасктеристики,
+    заглушки пресс
+    """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'excel_press.xlsx')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
 
 def download_rar_press_union(request):
+    """
+    Функция для скачивания zip-архива в котором находятся файлы с испытаний,
+    обеденненный пресс
+    """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'union.zip')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
 
 def download_excel_press_union(request):
+    """
+    Функция для скачивания excel файла в котором находятся геометрические харасктеристики,
+    обеденненный пресс
+    """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'union.xlsx')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
