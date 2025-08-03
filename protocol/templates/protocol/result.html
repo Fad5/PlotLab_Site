@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результат генерации протоколов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .result-box {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .success {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        .download-btn:hover {
+            background: #2980b9;
+        }
+        .protocol-list {
+            text-align: left;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Результат генерации протоколов</h1>
+    
+    <div class="result-box">
+        {% if success %}
+            <div class="success">Протоколы успешно сгенерированы!</div>
+            <p>Создано протоколов: {{ protocols|length }}</p>
+            
+            <div class="protocol-list">
+                <h3>Список сгенерированных протоколов:</h3>
+                <ul>
+                    {% for protocol in protocols %}
+                        <li>{{ protocol }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <a href="{% url 'download_protocols' %}" class="download-btn">Скачать ZIP-архив</a>
+        {% else %}
+            <div class="error">Ошибка при генерации протоколов</div>
+            <p>{{ error_message }}</p>
+        {% endif %}
+    </div>
+    
+    <a href="{% url 'upload_form' %}">Вернуться к форме загрузки</a>
+</body>
+</html>

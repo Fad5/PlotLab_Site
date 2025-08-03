@@ -10,6 +10,9 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.enum.table import WD_ALIGN_VERTICAL
 import datetime
 import tempfile
+import zipfile
+from io import BytesIO
+from django.http import HttpResponse
 
 # Настройки графиков
 plt.rcParams['font.family'] = 'Times New Roman'  # Установка шрифта Times New Roman
@@ -533,4 +536,87 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
             return False
     except Exception as e:
         print(f"Ошибка в genaretion_plot: {str(e)}")
+        return False
+
+
+def generate_individual_protocols(data_list, data_excel, template_path=None, output_dir='Индивидуальные_протоколы', zip_response=False):
+    """
+    Создает отдельные протоколы для каждого образца с возможностью архивации
+    
+    Параметры:
+        data_list - список путей к файлам с данными испытаний
+        data_excel - DataFrame с параметрами образцов
+        template_path - путь к шаблону Word
+        output_dir - папка для сохранения протоколов
+        zip_response - если True, возвращает HttpResponse с ZIP-архивом
+    """
+    try:
+        # Подготовка данных
+        data_excel['Образец'] = data_excel['Образец'].astype(str).str.strip()
+        data_excel.columns = data_excel.columns.str.strip()
+        
+        # Создаем временную директорию
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Создаем буфер для архива
+            zip_buffer = BytesIO()
+            created_files = []
+            
+            # Обрабатываем каждый файл с данными
+            for filepath in data_list:
+                filename = os.path.basename(filepath)
+                sample_name = os.path.splitext(filename)[0]
+                
+                # Находим образец в Excel
+                row = data_excel[data_excel['Образец'] == sample_name]
+                if row.empty:
+                    print(f"Образец {sample_name} не найден в таблице!")
+                    continue
+
+                try:
+                    # Получаем параметры образца
+                    width = row['Ширина'].values[0]
+                    length = row['Длина'].values[0]
+                    height = row['Высота'].values[0]
+                    mass = row['Масса'].values[0]
+                    protocol_number = row['Протокол'].values[0] if 'Протокол' in row.columns else sample_name
+                    
+                    # Обрабатываем данные образца
+                    sample_data = process_sample_file(filepath, sample_name, width, length, height, mass)
+                    if not sample_data:
+                        continue
+   
+                    # Создаем временный docx файл
+                    temp_output = os.path.join(temp_dir, f"Протокол_{protocol_number}.docx")
+                    fill_template(template_path, [sample_data], temp_output)
+                    created_files.append(temp_output)
+                    
+                except Exception as e:
+                    print(f"Ошибка обработки образца {sample_name}: {str(e)}")
+                    continue
+            
+            # Если нужно вернуть архив
+            if zip_response and created_files:
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for file_path in created_files:
+                        zipf.write(file_path, os.path.basename(file_path))
+                
+                zip_buffer.seek(0)
+                response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+                response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
+                return response
+            
+            # Если нужно сохранить в папку
+            elif not zip_response and created_files:
+                os.makedirs(output_dir, exist_ok=True)
+                for file_path in created_files:
+                    dest_path = os.path.join(output_dir, os.path.basename(file_path))
+                    os.rename(file_path, dest_path)
+                
+                print(f"\nСоздано {len(created_files)} протоколов в папке '{output_dir}'")
+                return True
+
+    except Exception as e:
+        print(f"Ошибка при создании протоколов: {str(e)}")
+        if zip_response:
+            return HttpResponse(f"Ошибка: {str(e)}", status=500)
         return False

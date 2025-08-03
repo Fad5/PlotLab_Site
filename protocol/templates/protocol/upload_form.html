@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор протоколов испытаний</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .upload-form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .instructions {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e8f4fc;
+            border-radius: 4px;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Генератор протоколов испытаний</h1>
+    
+    <div class="upload-form">
+        <form method="post" enctype="multipart/form-data" id="protocolForm">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="excelFile">Файл Excel с параметрами образцов:</label>
+                <input type="file" id="excelFile" name="excelFile" accept=".xlsx,.xls" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="dataFiles">Файлы с данными испытаний (Zip, rar):</label>
+                <input type="file" id="dataFiles" name="dataFiles" accept=".zip, .rar" multiple required>
+            </div>
+            
+            <div class="form-group">
+                <label for="docFile">Шаблон протокола (DOCX, необязательно):</label>
+                <input type="file" id="docFile" name="docFile" accept=".docx">
+            </div>
+            
+            <button type="submit" id="submitBtn">Сгенерировать протоколы</button>
+            
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+        </form>
+    </div>
+    
+    <div class="instructions">
+        <h3>Инструкция:</h3>
+        <ol>
+            <li>Загрузите Excel-файл с параметрами образцов (колонки: Образец, Ширина, Длина, Высота, Масса, Протокол, Дата)</li>
+            <li>Загрузите один или несколько TXT-файлов с данными испытаний</li>
+            <li>При необходимости загрузите свой шаблон DOCX (если не загрузите, будет использован шаблон по умолчанию)</li>
+            <li>Нажмите "Сгенерировать протоколы"</li>
+            <li>После обработки автоматически начнется скачивание ZIP-архива с протоколами</li>
+        </ol>
+    </div>
+
+    <script>
+        document.getElementById('protocolForm').addEventListener('submit', function() {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Обработка...';
+        });
+    </script>
+</body>
+</html>

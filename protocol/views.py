@@ -8,7 +8,7 @@ from django.http import FileResponse
 from django.contrib import messages
 from .forms import AnalysisForm
 from .models import AnalysisTask
-from .utils.protocol import genaretion_plot
+from .utils.protocol import genaretion_plot, generate_individual_protocols
 from .utils.help_fun import reformat_date, dolg, generate_random_float
 import pandas as pd
 from django.shortcuts import render
@@ -298,3 +298,53 @@ def download_excel_press_union(request):
     """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'union.xlsx')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
+
+
+
+def generate_and_download_protocols(request):
+            if request.method == 'POST':
+                if 'excelFile' not in request.FILES:
+                    return HttpResponse("Excel файл не был загружен", status=400)
+                else:
+                    excel_file = request.FILES['excelFile']
+                    data_files = request.FILES.getlist('data_files')
+                    excel_file = request.FILES['excelFile']
+                    
+                    # Читаем Excel
+                    df = pd.read_excel(excel_file)
+                    
+                    # Сохраняем файлы данных временно
+                    temp_files = []
+                    for f in data_files:
+                        temp_path = os.path.join(tempfile.gettempdir(), f.name)
+                        with open(temp_path, 'wb+') as dest:
+                            for chunk in f.chunks():
+                                dest.write(chunk)
+                        temp_files.append(temp_path)
+                    
+                    # Генерируем и возвращаем архив
+                    response = generate_individual_protocols(
+                        data_list=temp_files,
+                        data_excel=df,
+                        template_path='template.docx',
+                        zip_response=True
+                    )
+                    
+                    # Удаляем временные файлы
+                    for f in temp_files:
+                            os.remove(f)
+            return render(request, 'protocol/upload_form.html')
+
+
+def result_page(request):
+    """Отображает страницу с результатами"""
+    protocols = request.session.get('generated_protocols', [])
+    success = bool(protocols)
+    error_message = request.session.get('generation_error', '')
+    
+    return render(request, 'protocol/result.html', {
+        'success': success,
+        'protocols': protocols,
+        'error_message': error_message
+    })
