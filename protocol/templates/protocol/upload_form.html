@@ -48,6 +48,10 @@
         button:hover {
             background: #2980b9;
         }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
         .instructions {
             margin-top: 30px;
             padding: 15px;
@@ -57,6 +61,22 @@
         .error {
             color: #e74c3c;
             margin-top: 10px;
+            padding: 10px;
+            background: #fdecea;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            color: #27ae60;
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f8f0;
+            border-radius: 4px;
+            display: none;
+        }
+        #progress {
+            margin-top: 10px;
+            display: none;
         }
     </style>
 </head>
@@ -70,42 +90,107 @@
             <div class="form-group">
                 <label for="excelFile">Файл Excel с параметрами образцов:</label>
                 <input type="file" id="excelFile" name="excelFile" accept=".xlsx,.xls" required>
+                <small>Должен содержать колонки: Образец, Ширина, Длина, Высота, Масса</small>
             </div>
             
             <div class="form-group">
-                <label for="dataFiles">Файлы с данными испытаний (Zip, rar):</label>
-                <input type="file" id="dataFiles" name="dataFiles" accept=".zip, .rar" multiple required>
+                <label for="dataFiles">Файлы с данными испытаний:</label>
+                <input type="file" id="dataFiles" name="data_files" multiple required>
+                <small>Поддерживаемые форматы: TXT, CSV, DAT</small>
             </div>
             
             <div class="form-group">
                 <label for="docFile">Шаблон протокола (DOCX, необязательно):</label>
                 <input type="file" id="docFile" name="docFile" accept=".docx">
+                <small>Если не указан, будет использован шаблон по умолчанию</small>
             </div>
             
             <button type="submit" id="submitBtn">Сгенерировать протоколы</button>
+            <div id="progress">Обработка файлов, пожалуйста подождите...</div>
             
-            {% if error %}
-                <div class="error">{{ error }}</div>
-            {% endif %}
+            <div class="error" id="errorMessage"></div>
+            <div class="success" id="successMessage"></div>
         </form>
     </div>
     
     <div class="instructions">
         <h3>Инструкция:</h3>
         <ol>
-            <li>Загрузите Excel-файл с параметрами образцов (колонки: Образец, Ширина, Длина, Высота, Масса, Протокол, Дата)</li>
-            <li>Загрузите один или несколько TXT-файлов с данными испытаний</li>
-            <li>При необходимости загрузите свой шаблон DOCX (если не загрузите, будет использован шаблон по умолчанию)</li>
+            <li>Загрузите Excel-файл с параметрами образцов (обязательные колонки: Образец, Ширина, Длина, Высота, Масса)</li>
+            <li>Загрузите один или несколько файлов с данными испытаний (имена файлов должны соответствовать именам образцов)</li>
+            <li>При необходимости загрузите свой шаблон DOCX</li>
             <li>Нажмите "Сгенерировать протоколы"</li>
             <li>После обработки автоматически начнется скачивание ZIP-архива с протоколами</li>
         </ol>
     </div>
 
     <script>
-        document.getElementById('protocolForm').addEventListener('submit', function() {
+        document.getElementById('protocolForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
             const submitBtn = document.getElementById('submitBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const progress = document.getElementById('progress');
+            
+            // Сброс сообщений
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            progress.style.display = 'block';
             submitBtn.disabled = true;
             submitBtn.textContent = 'Обработка...';
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('application/zip')) {
+                        // Скачиваем архив
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'protocols_archive.zip';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+                        
+                        successMessage.textContent = 'Протоколы успешно сгенерированы и скачаны!';
+                        successMessage.style.display = 'block';
+                    } else if (contentType && contentType.includes('application/json')) {
+                        // Показываем ошибку из JSON
+                        const data = await response.json();
+                        errorMessage.textContent = 'Ошибка: ' + (data.error || 'Неизвестная ошибка');
+                        errorMessage.style.display = 'block';
+                    } else {
+                        errorMessage.textContent = 'Неизвестный формат ответа от сервера';
+                        errorMessage.style.display = 'block';
+                    }
+                } else {
+                    try {
+                        const data = await response.json();
+                        errorMessage.textContent = 'Ошибка: ' + (data.error || 'Неизвестная ошибка');
+                    } catch {
+                        errorMessage.textContent = `Ошибка сервера: ${response.status} ${response.statusText}`;
+                    }
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Ошибка сети: ' + error.message;
+                errorMessage.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Сгенерировать протоколы';
+                progress.style.display = 'none';
+            }
         });
     </script>
 </body>

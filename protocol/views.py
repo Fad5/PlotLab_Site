@@ -156,8 +156,6 @@ def Press_Protocols_Stubs(request):
             precent_20  = generate_random_float(percent_20_min, percent_20_max)
             precent_40  = generate_random_float(percent_40_min, percent_40_max)
             
-
-
             # Обработка шаблона документа
             if 'docFile' in request.FILES:
                 doc_file = request.FILES['docFile']
@@ -253,7 +251,6 @@ def Press_Protocols_Stubs(request):
                     # Явно закрываем буфер после использования
                     zip_buffer.close()
         
-    
     return render(request, 'protocol/3.html')
 
 
@@ -300,51 +297,76 @@ def download_excel_press_union(request):
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
 
 
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.http import require_http_methods
 
-
+@require_http_methods(["GET", "POST"])  # Разрешаем оба метода
 def generate_and_download_protocols(request):
-            if request.method == 'POST':
-                if 'excelFile' not in request.FILES:
-                    return HttpResponse("Excel файл не был загружен", status=400)
-                else:
-                    excel_file = request.FILES['excelFile']
-                    data_files = request.FILES.getlist('data_files')
-                    excel_file = request.FILES['excelFile']
-                    
-                    # Читаем Excel
-                    df = pd.read_excel(excel_file)
-                    
-                    # Сохраняем файлы данных временно
-                    temp_files = []
-                    for f in data_files:
-                        temp_path = os.path.join(tempfile.gettempdir(), f.name)
-                        with open(temp_path, 'wb+') as dest:
-                            for chunk in f.chunks():
-                                dest.write(chunk)
-                        temp_files.append(temp_path)
-                    
-                    # Генерируем и возвращаем архив
-                    response = generate_individual_protocols(
-                        data_list=temp_files,
-                        data_excel=df,
-                        template_path='template.docx',
-                        zip_response=True
-                    )
-                    
+    if request.method == 'GET':
+        # Возвращаем просто HTML страницу для GET-запросов
+        return render(request, 'protocol/upload_form.html')
+    
+    if request.method == 'POST':
+        try:
+            if 'excelFile' not in request.FILES:
+                return JsonResponse({'error': 'Excel файл не был загружен'}, status=400)
+            
+            excel_file = request.FILES['excelFile']
+            data_files = request.FILES.getlist('data_files')
+            
+            # Читаем Excel
+            try:
+                df = pd.read_excel(excel_file)
+            except Exception as e:
+                return JsonResponse({'error': f'Ошибка чтения Excel файла: {str(e)}'}, status=400)
+            
+            # Сохраняем файлы данных временно
+            temp_files = []
+            for f in data_files:
+                temp_path = os.path.join(tempfile.gettempdir(), f.name)
+                try:
+                    with open(temp_path, 'wb+') as dest:
+                        for chunk in f.chunks():
+                            dest.write(chunk)
+                    temp_files.append(temp_path)
+                except Exception as e:
+                    # Удаляем уже созданные временные файлы в случае ошибки
+                    for temp_file in temp_files:
+                        try:
+                            os.remove(temp_file)
+                        except:
+                            pass
+                    return JsonResponse({'error': f'Ошибка сохранения файла {f.name}: {str(e)}'}, status=500)
+            
+            # Генерируем протоколы
+            try:
+                response = generate_individual_protocols(
+                    data_list=temp_files,
+                    data_excel=df,
+                    template_path='templates_doc/template_press.docx',
+                    zip_response=True
+                )
+                
+                # Если получили HttpResponse (архив)
+                if isinstance(response, HttpResponse):
                     # Удаляем временные файлы
                     for f in temp_files:
+                        try:
                             os.remove(f)
-            return render(request, 'protocol/upload_form.html')
-
-
-def result_page(request):
-    """Отображает страницу с результатами"""
-    protocols = request.session.get('generated_protocols', [])
-    success = bool(protocols)
-    error_message = request.session.get('generation_error', '')
-    
-    return render(request, 'protocol/result.html', {
-        'success': success,
-        'protocols': protocols,
-        'error_message': error_message
-    })
+                        except:
+                            pass
+                    return response
+                else:
+                    raise Exception("Не удалось сгенерировать протоколы")
+                
+            except Exception as e:
+                # Удаляем временные файлы в случае ошибки
+                for f in temp_files:
+                    try:
+                        os.remove(f)
+                    except:
+                        pass
+                return JsonResponse({'error': f'Ошибка генерации протоколов: {str(e)}'}, status=500)
+                
+        except Exception as e:
+            return JsonResponse({'error': f'Неожиданная ошибка: {str(e)}'}, status=500)

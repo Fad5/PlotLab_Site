@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (UploadView, ResultsView, download_rar_press_union,download_excel_press_union,
                     download_report, protocol, Press_Protocols_Stubs, download_template, 
-                    download_excel_press, generate_and_download_protocols, result_page)
+                    download_excel_press, generate_and_download_protocols)
 
 urlpatterns = [
     path('', protocol, name='protocol'),
@@ -14,6 +14,5 @@ urlpatterns = [
     path('download-template-excel-press-union/', download_excel_press_union, name='download_excel_press_union'),
     path('download-template-zip-union/', download_rar_press_union, name='download_rar_press_union'),
     path('generate/', generate_and_download_protocols, name='generate_protocols'),
-    path('result/', result_page, name='result_page'),
     path('download/', generate_and_download_protocols, name='download_protocols'),
 ]
