@@ -74,34 +74,28 @@ class UploadView(FormView):
                     return
 
                 # 3. Генерация отчета
-                try:
-                    output_path = os.path.join(temp_dir, 'report.docx')
+
+                output_path = os.path.join(temp_dir, 'report.docx')
+                
+                # Добавим логирование перед вызовом genaretion_plot
+                print(f"Начало генерации отчета. Файлов данных: {len(data_files)}")
+                
+                success = genaretion_plot(
+                    data_files, 
+                    excel_data, 
+                    output_filename=output_path
+                )
+                
+                if not success:
+                    raise ValueError("Не удалось сгенерировать отчет")
+                
+                # Сохраняем результат
+                with open(output_path, 'rb') as f:
+                    task.result_file.save('report.docx', f)
+                
+                task.status = 'completed'
                     
-                    # Добавим логирование перед вызовом genaretion_plot
-                    print(f"Начало генерации отчета. Файлов данных: {len(data_files)}")
-                    
-                    success = genaretion_plot(
-                        data_files, 
-                        excel_data, 
-                        output_filename=output_path
-                    )
-                    
-                    if not success:
-                        raise ValueError("Не удалось сгенерировать отчет")
-                    
-                    # Сохраняем результат
-                    with open(output_path, 'rb') as f:
-                        task.result_file.save('report.docx', f)
-                    
-                    task.status = 'completed'
-                    
-                except Exception as e:
-                    task.status = 'failed'
-                    print(f"Ошибка генерации отчета: {str(e)}")
-                    
-        except Exception as e:
-            task.status = 'failed'
-            print(f"Неожиданная ошибка: {str(e)}")
+                
             
         finally:
             task.save()

@@ -2,7 +2,9 @@ import numpy as np
 from scipy.signal import find_peaks
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Устанавливаем неинтерактивный бэкенд
+from matplotlib import pyplot as plt
 import math
 from docx import Document
 from docx.shared import Inches, Pt
@@ -141,26 +143,89 @@ def create_plot_modul_young(E1, Eps1, Pr, name_sample, form_factor):
     ax5.set_ylim(bottom=0)
 
     plt.tight_layout()
+    plt.close()
     return save_plot(fig, f"{name_sample}_modul_young.png")
+
 
 def full_plot(Time, Disp, Forse, name_sample, form_factor):
     """Создает полный график зависимости перемещения и нагрузки от времени"""
     fig, ax1 = plt.subplots(figsize=(10, 6))
+    
+    # Инициализация возвращаемых значений по умолчанию
+    unload_time = None
+    unload_force = None
+    last_peak_force = None
+    time_load = None
+    
+    # Построение графика перемещения
     ax1.plot(Time, Disp, 'b', label='Смещение (мм)', linewidth=linewidth)
     ax1.set_ylabel('Перемещение, мм', fontsize=fontsize, fontweight=fontweight, color='blue')
     ax1.set_xlabel('Время, с', fontsize=fontsize, fontweight=fontweight)
     ax1.grid(True)
     ax1.set_ylim([0, math.ceil(max(Disp) + 0.5)])
 
+    # Построение графика нагрузки
     ax1_force = ax1.twinx()
-    ax1_force.plot(Time, Forse, 'r', label='Нагрузка (Н)', linewidth=linewidth)
+    line, = ax1_force.plot(Time, Forse, 'r', label='Нагрузка (Н)', linewidth=linewidth)
     ax1_force.set_ylabel('Нагрузка, Н', fontsize=fontsize, fontweight=fontweight, color='red')
 
-    # ax1.set_title(f'{name_sample} | Коэффициент формы q = {form_factor}', 
-    #              fontsize=fontsize, fontweight=fontweight)
+    # Находим пики нагрузки
+    peaks, _ = find_peaks(Forse, prominence=np.std(Forse)/2)
+    
+    if len(peaks) > 0:
+        # Берем последний пик
+        last_peak_idx = peaks[-1]
+        last_peak_time = Time[last_peak_idx]
+        last_peak_force = Forse[last_peak_idx]
+        
+        # Анализируем перемещение после пика
+        disp_after_peak = Disp[last_peak_idx:]
+        
+        # Находим точку, где перемещение начинает резко уменьшаться
+        disp_derivative = np.gradient(disp_after_peak)
+        
+        # Ищем точку разгрузки
+        threshold = -0.001
+        unload_idx = last_peak_idx
+        for i in range(1, len(disp_derivative)):
+            if disp_derivative[i] < threshold:
+                unload_idx = last_peak_idx + i
+                break
+        
+        unload_time = Time[unload_idx]
+        unload_force = Forse[unload_idx]
+        unload_disp = Disp[unload_idx]
+        time_load = unload_time - last_peak_time
+        
+        # Визуализация
+        ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
+        ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
+    
+
+        # Легенда
+        lines, labels = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax1_force.get_legend_handles_labels()
+
+
+    print(name_sample)
+    print(last_peak_force - unload_force)
+    print(time_load)
+    print('#' * 25)
+
 
     plt.tight_layout()
-    return save_plot(fig, f"{name_sample}_full_plot.png")
+    plt.close()
+    plot_path = save_plot(fig, f"{name_sample}_full_plot.png")
+    
+    # Возвращаем путь к графику и нужные значения
+    return {
+        'plot_path': plot_path,
+        'unload_time': unload_time,
+        'unload_force': unload_force,
+        'last_peak_force': last_peak_force,
+        'time_load': time_load
+    }
+
 
 def plot_cycles_only(Forse, Disp, locs, name_sample, form_factor):
     """Создает графики циклов нагружения"""
@@ -192,6 +257,7 @@ def plot_cycles_only(Forse, Disp, locs, name_sample, form_factor):
     #             fontsize=fontsize, fontweight=fontweight)
 
     plt.tight_layout()
+    plt.close()
     return save_plot(fig, f"{name_sample}_cycles.png")
 
 def find_loading_cycles(df):
@@ -201,6 +267,8 @@ def find_loading_cycles(df):
 
 def process_sample_file(filepath, sample_name, width, length, height, mass):
     """Обрабатывает данные одного образца и создает графики"""
+    load_600 = True
+
     df = load_data(filepath)
     if df is None:
         return None
@@ -210,7 +278,14 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
     time = df[3].values
     locs = find_loading_cycles(df)
 
-    full_plot_path = full_plot(time, displacement, force, sample_name, length)
+    plot_data = full_plot(time, displacement, force, sample_name, length)
+
+    full_plot_path = plot_data['plot_path']
+    unload_time = plot_data['unload_time']
+    unload_force = plot_data['unload_force']
+    last_peak_force = plot_data['last_peak_force']
+    time_load = plot_data['time_load']
+
     E1, Eps1, Pr = data_modul_young(df, width, length, height)
     
     if E1 is None:
@@ -231,7 +306,11 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
         'full_plot': full_plot_path,
         'modul_plot': modul_plot_path,
         'cycles_plot': cycles_plot_path if cycles_plot_path else None,
-        'load_values': load_values
+        'load_values': load_values,
+        'unload_time': unload_time,
+        'unload_force': unload_force,
+        'last_peak_force': last_peak_force,
+        'time_load': time_load
     }
 
 
@@ -291,30 +370,24 @@ def insert_load_table(doc, samples_data, decimal_places=3):
     doc.add_paragraph()  # Добавляем пустой абзац для отступа
 
 
-
-def get_load_at_deformations(Pr, Eps1, deformation_ranges=[(9, 11), (19, 21), (38, 40)]):
+def get_load_at_deformations(Pr, Eps1, deformation_ranges=[(5, 6), (10, 11), (18, 20)]):
     """Возвращает значения нагрузки при указанных диапазонах деформации"""
     results = {}
     
-    for i, (low, high) in enumerate(deformation_ranges):
-        # Находим индексы в заданном диапазоне
+    for low, high in deformation_ranges:
+        # Находим все точки, где деформация попадает в диапазон
         mask = (Eps1 >= low) & (Eps1 <= high)
         indices = np.where(mask)[0]
         
         if len(indices) > 0:
-            # Берем среднее значение в диапазоне
+            # Среднее значение нагрузки в диапазоне
             avg_load = np.mean(Pr[indices])
-            level_key = f"{deformation_ranges[i][0]}-{deformation_ranges[i][1]}%"
-            results[level_key] = avg_load
+            results[f"{low}-{high}%"] = avg_load
         else:
-            # Если нет значений в диапазоне, ищем ближайшее
-            if i == len(deformation_ranges) - 1:  # Для последнего диапазона берем максимальную деформацию
-                max_eps_idx = np.argmax(Eps1)
-                if max_eps_idx < len(Pr):
-                    results["max_deformation"] = Pr[max_eps_idx]
-            else:
-                results[f"{deformation_ranges[i][0]}-{deformation_ranges[i][1]}%"] = 0.0
-                
+            # Если нет данных, ищем ближайшее значение
+            closest_idx = np.argmin(np.abs(Eps1 - (low + high)/2))
+            results[f"{low}-{high}%"] = Pr[closest_idx]
+    
     return results
 
 
@@ -333,7 +406,6 @@ def add_custom_heading(doc, text, level=1):
     else:
         run.bold = True
         run.font.size = Pt(12)
-    
     return p
 
 
@@ -429,12 +501,17 @@ def fill_template(template_path, samples_data, output_filename):
     doc = Document(template_path)
 
     print(template_path)
+    print('#' * 20)
     print(output_filename)
+    print('#' * 20)
     print(samples_data)
+    print('#' * 20)
     
     # Сначала обрабатываем все параграфы шаблона
     for paragraph in list(doc.paragraphs):  # Используем list() для создания копии
         text = paragraph.text
+
+        print(text)
         
         if '{ДАТА}' in text:
             # Заменяем дату
@@ -522,7 +599,8 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
                 continue
 
             try:
-                width = float(row['Ширина'].values[0].replace(',', '.'))
+                # Convert numpy.float64 to float directly (no need for replace)
+                width = float(row['Ширина'].values[0].replace(',', '.'))  # ← Missing indentation!
                 length = float(row['Длина'].values[0].replace(',', '.'))
                 height = float(row['Высота'].values[0].replace(',', '.'))
                 mass = float(row['Масса'].values[0].replace(',', '.'))
@@ -593,6 +671,7 @@ def generate_individual_protocols(data_list, data_excel, template_path=None, out
                 # Добавляем остальные поля из sample_data если они нужны в шаблоне
                 **sample_data
             }
+            
             
             print("Данные для шаблона:", template_data)
             
