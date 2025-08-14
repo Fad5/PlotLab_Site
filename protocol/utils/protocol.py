@@ -545,6 +545,54 @@ def fill_template(template_path, samples_data, output_filename):
     doc.save(output_filename)
 
 
+
+def fill_template_(template_path, samples_data, output_filename):
+    """Заполняет шаблон документа данными с правильным расположением элементов"""
+    try:
+        doc = Document(template_path)
+
+        # Сначала обрабатываем все параграфы шаблона
+        for paragraph in list(doc.paragraphs):  # Используем list() для создания копии
+            text = paragraph.text
+
+            if '{ДАТА}' in text:
+                # Заменяем дату
+                paragraph.text = text.replace('{ДАТА}', datetime.datetime.now().strftime("%d.%m.%Y"))
+                
+            elif '{LOAD_TABLE_PLACEHOLDER}' in text:
+                # Вставляем таблицу нагрузок вместо плейсхолдера
+                paragraph.text = paragraph.text.replace('{LOAD_TABLE_PLACEHOLDER}', '')
+                insert_load_table(doc, samples_data)
+                
+            elif '{SAMPLES_TABLE_PLACEHOLDER}' in text:
+                # Вставляем таблицу параметров образцов вместо плейсхолдера
+                paragraph.text = paragraph.text.replace('{SAMPLES_TABLE_PLACEHOLDER}', '')
+                insert_samples_table(doc, samples_data)
+                
+            elif '{GRAPHS_PLACEHOLDER}' in text:
+                # Вставляем графики вместо плейсхолдера
+                paragraph.text = paragraph.text.replace('{GRAPHS_PLACEHOLDER}', '')
+                
+                # Добавляем заголовок перед графиками
+                p = doc.add_paragraph()
+                run = p.add_run("Графики результатов испытаний")
+                run.bold = True
+                run.font.size = Pt(14)
+                run.font.name = 'Times New Roman'
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                
+                # Вставляем сами графики
+                insert_samples_graphs(doc, samples_data)
+        
+        # Сохраняем документ
+        doc.save(output_filename)
+        return True
+    
+    except Exception as e:
+        print(f"Ошибка при заполнении шаблона: {str(e)}")
+        return False
+
+
 def cleanup_temp_files(samples_data):
     """Удаляет временные файлы с графиками"""
     for sample in samples_data:
@@ -679,7 +727,7 @@ def generate_individual_protocols(data_list, data_excel, template_path=None, out
             temp_output = os.path.join(temp_dir, f"Протокол_{protocol_number}.docx")
             
             # Заполняем шаблон
-            success = fill_template(template_path, template_data, temp_output)
+            success = fill_template_(template_path, template_data, temp_output)
             print("Результат заполнения шаблона:", success)
             
             if success:
