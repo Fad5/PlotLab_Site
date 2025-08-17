@@ -76,3 +76,63 @@ def generate_random_float(start, end, precision=2):
     
     # Заменяем точку на запятую
     return formatted_num.replace('.', ',')
+
+
+def str_to_float(number_str: str) -> float:
+    """
+    Преобразует строку с числом (с запятой или точкой) в float.
+    
+    Примеры:
+        "25,48" → 25.48
+        "100.500" → 100.5
+        "1 000,75" → 1000.75
+    
+    Args:
+        number_str (str): Строка с числом (может содержать пробелы, запятые, точки).
+    
+    Returns:
+        float: Преобразованное число.
+    
+    Raises:
+        ValueError: Если строка не может быть преобразована в число.
+    """
+    if type(number_str) is str:
+        # Удаляем все пробелы (для случаев типа "1 000,75" → "1000,75")
+        cleaned = number_str.replace(" ", "")
+        
+        # Заменяем запятую на точку, если запятая есть
+        if "," in cleaned:
+            cleaned = cleaned.replace(",", ".")
+        
+        # Проверяем, что в строке только одна точка (иначе это ошибка)
+        if cleaned.count(".") > 1:
+            raise ValueError(f"Некорректный формат числа: '{number_str}'")
+        
+        return float(cleaned)
+    else:
+        return number_str
+
+
+
+def float_to_str(number: float | int, decimal_places: int = 2) -> str:
+    """
+    Преобразует число (float/int) в строку с запятой в качестве разделителя дробной части.
+    
+    Args:
+        number (float | int): Число для преобразования.
+        decimal_places (int): Количество знаков после запятой (по умолчанию 2).
+    
+    Returns:
+        str: Строка с числом, где дробная часть отделена запятой.
+    
+    Examples:
+        >>> float_to_str(14.1111214)
+        '14,11'
+        >>> float_to_str(14)
+        '14,00'
+        >>> float_to_str(3.14159, 3)
+        '3,142'
+    """
+    # Форматируем число с точкой, затем заменяем её на запятую
+    formatted = f"{number:.{decimal_places}f}".replace(".", ",")
+    return formatted

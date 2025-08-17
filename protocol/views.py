@@ -9,7 +9,7 @@ from django.contrib import messages
 from .forms import AnalysisForm
 from .models import AnalysisTask
 from .utils.protocol import genaretion_plot, generate_individual_protocols
-from .utils.help_fun import reformat_date, dolg, generate_random_float
+from .utils.help_fun import reformat_date, dolg, generate_random_float, str_to_float, float_to_str
 import pandas as pd
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -125,6 +125,9 @@ def protocol(request):
 
 
 def Press_Protocols_Stubs(request):
+    """
+    Функия для создания заглушек протоколов пресс
+    """
     if request.method == 'POST':
  
             # Получаем загруженные файлы
@@ -364,3 +367,280 @@ def generate_and_download_protocols(request):
                 
         except Exception as e:
             return JsonResponse({'error': f'Неожиданная ошибка: {str(e)}'}, status=500)
+        
+
+def OD_generate(request):
+    """
+    Функия для создания заглушек протоколов пресс
+    """
+    if request.method == 'POST':
+ 
+            # Получаем загруженные файлы
+            excel_file = request.FILES['excelFile']
+
+            # Получаем данные с полей 
+            percent_min = float(request.POST.get('percent_min'))
+            percent_max = float(request.POST.get('percent_max'))
+            sample_type = request.POST.get('sample_type')
+
+            if sample_type  == 'square_plate':
+                type_sample = 'Квадратная пластина'
+            if sample_type  == 'rectangular_plate':
+                type_sample = 'Прямоугольная пластина'
+
+            # Генерация случайного числа 
+            procent  = generate_random_float(percent_min, percent_max)
+
+            
+            # Обработка шаблона документа
+            if 'docFile' in request.FILES:
+                doc_file = request.FILES['docFile']
+            else:
+                # Используем шаблон по умолчанию
+                default_template_path = os.path.join('templates_doc', 'template_OD.docx')
+                doc_file = open(default_template_path, 'rb')
+            
+            # Создаем временную директорию
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Сохраняем файлы во временную директорию
+                excel_path = os.path.join(temp_dir, excel_file.name)
+                
+                # Для doc_file используем либо имя загруженного файла, либо имя файла по умолчанию
+                if isinstance(doc_file, UploadedFile):  # Если это загруженный файл
+                    doc_path = os.path.join(temp_dir, doc_file.name)
+                else:  # Если это файл по умолчанию
+                    doc_path = os.path.join(temp_dir, 'template_OD.docx')
+                
+                # Сохраняем excel файл
+                with open(excel_path, 'wb+') as f:
+                    for chunk in excel_file.chunks():
+                        f.write(chunk)
+                
+                # Сохраняем doc файл
+                with open(doc_path, 'wb+') as f:
+                    if isinstance(doc_file, UploadedFile):
+                        for chunk in doc_file.chunks():
+                            f.write(chunk)
+                    else:
+                        f.write(doc_file.read())
+                        doc_file.close()  # Закрываем файл по умолчанию после чтения
+                
+                # Читаем Excel файл
+                df = pd.read_excel(excel_path)
+                
+                # Создаем архив в памяти
+                zip_buffer = BytesIO()
+                
+                try:
+                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                        # Обрабатываем каждую строку в Excel
+                        for index, row in df.iterrows():
+                            # Получаем дату с excel файла
+                            excel_data = row['Дата']
+                            # Преобразуем дату 03.03.2000 в 3 марта 2000г.
+                            data_prot = reformat_date(excel_data)
+                            # Отображаем правильную должность в зависимости от даты 
+                            dolg_ = dolg(excel_data)
+
+                            precent__ = float(procent.replace(',', '.'))
+
+                            height_0  = str_to_float(row['Высота'])
+                            height_1  =  height_0 - (height_0 * (precent__ / 100))
+                            
+
+                            context = {
+                                'name_sample': row['Образец'],
+                                'type_sample': type_sample,
+                                'width': row['Ширина'],
+                                'length': row['Длина'],
+                                'height': row['Высота'],
+                                'height_1': float_to_str(height_1),
+                                'mass': row['Масса'],
+                                'num_prot': row['Номер протокола'],
+                                'data_prot': data_prot,
+                                'dol': dolg_,
+                                'procent': (procent),
+                            }
+                            
+                            # Загружаем шаблон
+                            doc = DocxTemplate(doc_path)
+                            doc.render(context)
+                            
+                            name_protocol = str(row['Номер протокола']).split('/')
+                            if len(name_protocol) == 2:
+                                name_protocol = name_protocol[0] + '-' + name_protocol[1]
+                            else:
+                                name_protocol = name_protocol[0]
+                            
+                            # Сохраняем документ во временный файл
+                            temp_doc_path = os.path.join(temp_dir, f"{name_protocol}.docx")
+                            doc.save(temp_doc_path)
+                            
+                            # Добавляем документ в архив
+                            zipf.write(temp_doc_path, os.path.basename(temp_doc_path))
+                    
+                    # После выхода из блока with zipfile.ZipFile, буфер остается открытым
+                    zip_buffer.seek(0)
+                    
+                    # Создаем ответ
+                    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+                    response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
+                    return response
+                
+                finally:
+                    # Явно закрываем буфер после использования
+                    zip_buffer.close()
+        
+    return render(request, 'protocol/OD/OD.html')
+
+
+def OD_elone(request):
+    """
+    Функия для создания протоколов остаточной деформации 
+    """
+    if request.method == 'POST':
+ 
+            # Получаем загруженные файлы
+            excel_file = request.FILES['excelFile']
+
+            # Получаем данные с полей 
+            sample_type = request.POST.get('sample_type')
+
+            if sample_type  == 'square_plate':
+                type_sample = 'Квадратная пластина'
+            if sample_type  == 'rectangular_plate':
+                type_sample = 'Прямоугольная пластина'
+
+            # Генерация случайного числа 
+
+            
+            # Обработка шаблона документа
+            if 'docFile' in request.FILES:
+                doc_file = request.FILES['docFile']
+            else:
+                # Используем шаблон по умолчанию
+                default_template_path = os.path.join('templates_doc', 'template_OD.docx')
+                doc_file = open(default_template_path, 'rb')
+            
+            # Создаем временную директорию
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Сохраняем файлы во временную директорию
+                excel_path = os.path.join(temp_dir, excel_file.name)
+                
+                # Для doc_file используем либо имя загруженного файла, либо имя файла по умолчанию
+                if isinstance(doc_file, UploadedFile):  # Если это загруженный файл
+                    doc_path = os.path.join(temp_dir, doc_file.name)
+                else:  # Если это файл по умолчанию
+                    doc_path = os.path.join(temp_dir, 'template_OD.docx')
+                
+                # Сохраняем excel файл
+                with open(excel_path, 'wb+') as f:
+                    for chunk in excel_file.chunks():
+                        f.write(chunk)
+                
+                # Сохраняем doc файл
+                with open(doc_path, 'wb+') as f:
+                    if isinstance(doc_file, UploadedFile):
+                        for chunk in doc_file.chunks():
+                            f.write(chunk)
+                    else:
+                        f.write(doc_file.read())
+                        doc_file.close()  # Закрываем файл по умолчанию после чтения
+                
+                # Читаем Excel файл
+                df = pd.read_excel(excel_path)
+                
+                # Создаем архив в памяти
+                zip_buffer = BytesIO()
+                
+                try:
+                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                        # Обрабатываем каждую строку в Excel
+                        for index, row in df.iterrows():
+                            # Получаем дату с excel файла
+                            excel_data = row['Дата']
+                            # Преобразуем дату 03.03.2000 в 3 марта 2000г.
+                            data_prot = reformat_date(excel_data)
+                            # Отображаем правильную должность в зависимости от даты 
+                            dolg_ = dolg(excel_data)
+
+                            print(row['Высота_после'], type(row['Высота_после']), "row['Высота_после']")
+
+                            height_0 = str_to_float(row['Высота'])
+                            height_1 = str_to_float(row['Высота_после'])
+
+                            procent = (1 - height_1 / height_0) * 100
+                            
+
+                            context = {
+                                'name_sample': row['Образец'],
+                                'type_sample': type_sample,
+                                'width': row['Ширина'],
+                                'length': row['Длина'],
+                                'height': row['Высота'],
+                                'height_1': float_to_str(row['Высота_после']),
+                                'mass': row['Масса'],
+                                'num_prot': row['Номер протокола'],
+                                'data_prot': data_prot,
+                                'dol': dolg_,
+                                'procent': float_to_str(procent),
+                            }
+                            
+                            # Загружаем шаблон
+                            doc = DocxTemplate(doc_path)
+                            doc.render(context)
+                            
+                            name_protocol = str(row['Номер протокола']).split('/')
+                            if len(name_protocol) == 2:
+                                name_protocol = name_protocol[0] + '-' + name_protocol[1]
+                            else:
+                                name_protocol = name_protocol[0]
+                            
+                            # Сохраняем документ во временный файл
+                            temp_doc_path = os.path.join(temp_dir, f"{name_protocol}.docx")
+                            doc.save(temp_doc_path)
+                            
+                            # Добавляем документ в архив
+                            zipf.write(temp_doc_path, os.path.basename(temp_doc_path))
+                    
+                    # После выхода из блока with zipfile.ZipFile, буфер остается открытым
+                    zip_buffer.seek(0)
+                    
+                    # Создаем ответ
+                    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+                    response['Content-Disposition'] = 'attachment; filename="protocols_archive.zip"'
+                    return response
+                
+                finally:
+                    # Явно закрываем буфер после использования
+                    zip_buffer.close()
+        
+    return render(request, 'protocol/OD/OD_elone.html')
+
+
+def download_excel_OD_elone(request):
+    """
+    Функция для скачивания excel файла в котором находятся геометрические харасктеристики,
+    заглушки пресс
+    """
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'OD_elone.xlsx')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
+
+def download_template_OD_elone(request):
+    """
+    Функция для скачивания doc-шаблона,
+    заглушки пресс
+    """
+    # Путь к файлу шаблона
+    template_path = os.path.join(settings.BASE_DIR,'templates_doc', 'template_OD.docx')
+    print(template_path)
+    # Открываем файл и возвращаем как ответ
+    try:
+        file = open(template_path, 'rb')
+        response = FileResponse(file)
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        response['Content-Disposition'] = 'attachment; filename="protocol_template.docx"'
+        return response
+    except FileNotFoundError:
+        return HttpResponse("Файл шаблона не найден", status=404)
