@@ -1,0 +1,389 @@
+{% extends 'analysis/base.html' %}
+{% load static %}
+
+{% block page_title %}Анализ вибрационных характеристик{% endblock %}
+
+{% block style %}
+<style>
+    .glass-container {
+        background: var(--box-bg);
+        border-radius: 20px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .parameters-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .parameter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .input-sample {
+        width: 100%;
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+
+    .test-block {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .form-group {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .remove-btn {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        align-self: center;
+    }
+
+    .remove-btn:hover {
+        background-color: #d32f2f;
+    }
+
+    #add-test-block, button[type="submit"] {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        margin-right: 1rem;
+    }
+
+    #add-test-block:hover, button[type="submit"]:hover {
+        background-color: #45a049;
+    }
+
+    .plot-container {
+        margin-top: 2rem;
+    }
+
+    .plot-card {
+        background: var(--box-bg);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .plot-title {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        color: var(--text-color);
+    }
+
+    .plot-image {
+        width: 100%;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .download-btn {
+        background-color: #2196F3;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .download-btn:hover {
+        background-color: #0b7dda;
+    }
+
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+    }
+
+    .results-table th, .results-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .results-table th {
+        background-color: #f2f2f2;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        margin: 1rem 0;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        margin-right: 0.5rem;
+        width: 18px;
+        height: 18px;
+    }
+
+    @media (max-width: 768px) {
+        .test-block {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="glass-container">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h2>Параметры образца</h2>
+        <div class="parameters-section">
+            <div class="parameter-group">
+                <label for="width">Ширина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="width" id="width" 
+                       value="{{ form_data.width|default:'100' }}" required>
+            </div>
+            
+            <div class="parameter-group">
+                <label for="length">Длина (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="length" id="length" 
+                       value="{{ form_data.length|default:'100' }}" required>
+            </div>
+            
+            <div class="parameter-group">
+                <label for="height_id">Высота без нагрузки (мм):</label>
+                <input class="input-sample" type="number" step="0.01" name="height_id" id="height_id" 
+                       value="{{ form_data.height_id|default:'20' }}" required>
+            </div>
+            
+            <div class="parameter-group">
+                <label for="Hz">Верхний предел частоты (Гц):</label>
+                <input class="input-sample" type="number" step="1" name="Hz" id="Hz" 
+                       value="{{ form_data.Hz|default:'700' }}" required>
+            </div>
+            
+            <div class="parameter-group">
+                <label for="left_lim">Нижний предел частоты (Гц):</label>
+                <input class="input-sample" type="number" step="1" name="left_lim" id="left_lim" 
+                       value="{{ form_data.left_lim|default:'5' }}" required>
+            </div>
+        </div>
+
+        <!-- Чекбокс для средней линии -->
+        <div class="checkbox-group">
+            <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
+                   {% if form_data.show_mean_line %}checked{% endif %}>
+            <label for="show_mean_line">Показывать среднюю линию между образцами</label>
+        </div>
+
+        <h2>Параметры испытаний</h2>
+        <div id="test-blocks-container">
+            {% for test in form_data.tests %}
+            <div class="test-block" id="test-block-{{ forloop.counter0 }}">
+                <div class="form-group">
+                    <label for="id_sample_name_{{ forloop.counter0 }}">Название образца:</label>
+                    <input class="sample-name-input" type="text" name="sample_name_{{ forloop.counter0 }}" 
+                           id="id_sample_name_{{ forloop.counter0 }}" value="{{ test.sample_name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_height_{{ forloop.counter0 }}">Высота под нагрузкой (мм):</label>
+                    <input class="input-sample" type="number" step="0.01" name="height_{{ forloop.counter0 }}" 
+                        id="id_height_{{ forloop.counter0 }}" value="{{ test.loaded_height }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_mass_{{ forloop.counter0 }}">Масса нагрузки (кг):</label>
+                    <input class="input-sample" type="number" step="0.01" name="mass_{{ forloop.counter0 }}" 
+                        id="id_mass_{{ forloop.counter0 }}" value="{{ test.mass }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_file_{{ forloop.counter0 }}">Файл испытания:</label>
+                    <input class="input-sample" type="file" name="file_{{ forloop.counter0 }}" 
+                        id="id_file_{{ forloop.counter0 }}" {% if not test.file_name %}required{% endif %}>
+                    {% if test.file_name %}
+                    <small>Текущий файл: {{ test.file_name }}</small>
+                    <input type="hidden" name="existing_file_{{ forloop.counter0 }}" value="{{ test.file_name }}">
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="id_swap_{{ forloop.counter0 }}">Перевернуть:</label>
+                    <select class="input-sample" name="swap_{{ forloop.counter0 }}" id="id_swap_{{ forloop.counter0 }}" required>
+                        <option value="false" {% if test.swap == 'false' %}selected{% endif %}>Нет</option>
+                        <option value="true" {% if test.swap == 'true' %}selected{% endif %}>Да</option>
+                    </select>
+                </div>
+                <button type="button" class="remove-btn" onclick="this.parentNode.remove()">
+                    Удалить
+                </button>
+            </div>
+            {% empty %}
+            <div class="test-block" id="test-block-0">
+                <div class="form-group">
+                    <label for="id_sample_name_0">Название образца:</label>
+                    <input class="sample-name-input" type="text" name="sample_name_0" 
+                           id="id_sample_name_0" value="Образец 1" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_height_0">Высота под нагрузкой (мм):</label>
+                    <input class="input-sample" type="number" step="0.01" name="height_0" 
+                        id="id_height_0" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_mass_0">Масса нагрузки (кг):</label>
+                    <input class="input-sample" type="number" step="0.01" name="mass_0" 
+                        id="id_mass_0" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_file_0">Файл испытания:</label>
+                    <input class="input-sample" type="file" name="file_0" 
+                        id="id_file_0" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_swap_0">Перевернуть:</label>
+                    <select class="input-sample" name="swap_0" id="id_swap_0" required>
+                        <option value="false">Нет</option>
+                        <option value="true">Да</option>
+                    </select>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 1.5rem;">
+            <button type="button" id="add-test-block">Добавить испытание</button>
+            <button type="submit">Анализировать данные</button>
+        </div>
+    </form>
+</div>
+
+{% if results_table %}
+<div class="glass-container">
+    <h2>Результаты анализа</h2>
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>Файл</th>
+                <th>Образец</th>
+                <th>Частота пика (Гц)</th>
+                <th>Динамический модуль (МПа)</th>
+                <th>Демпфирование</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results_table %}
+            <tr>
+                <td>{{ result.name }}</td>
+                <td>{{ result.sample_name }}</td>
+                <td>{{ result.Fpeak|floatformat:2 }}</td>
+                <td>{{ result.Ed|floatformat:3 }}</td>
+                <td>{{ result.damp|floatformat:4 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if plots %}
+<div class="glass-container plot-container">
+    <h2>Графики</h2>
+    {% for plot in plots %}
+    <div class="plot-card">
+        <div class="plot-title">{{ plot.title }}</div>
+        <img src="{{ plot.image }}" alt="{{ plot.title }}" class="plot-image">
+        <a href="{{ plot.image }}" download="{{ plot.title|slugify }}.png" class="download-btn">
+            Скачать график
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('test-blocks-container');
+    let blockCount = {{ form_data.tests|length|default:1 }};
+    
+    // Добавление нового блока испытаний
+    document.getElementById('add-test-block').addEventListener('click', function() {
+        const newBlock = document.createElement('div');
+        newBlock.className = 'test-block';
+        newBlock.id = `test-block-${blockCount}`;
+        
+        newBlock.innerHTML = `
+            <div class="form-group">
+                <label for="id_sample_name_${blockCount}">Название образца:</label>
+                <input class="sample-name-input" type="text" name="sample_name_${blockCount}" 
+                    id="id_sample_name_${blockCount}" value="Образец ${blockCount + 1}" required>
+            </div>
+            <div class="form-group">
+                <label for="id_height_${blockCount}">Высота под нагрузкой (мм):</label>
+                <input class="input-sample" type="number" step="0.01" 
+                    name="height_${blockCount}" id="id_height_${blockCount}" required>
+            </div>
+            <div class="form-group">
+                <label for="id_mass_${blockCount}">Масса нагрузки (кг):</label>
+                <input class="input-sample" type="number" step="0.01" 
+                    name="mass_${blockCount}" id="id_mass_${blockCount}" required>
+            </div>
+            <div class="form-group">
+                <label for="id_file_${blockCount}">Файл испытания:</label>
+                <input class="input-sample" type="file" 
+                    name="file_${blockCount}" id="id_file_${blockCount}" required>
+            </div>
+            <div class="form-group">
+                <label for="id_swap_${blockCount}">Перевернуть:</label>
+                <select class="input-sample" name="swap_${blockCount}" id="id_swap_${blockCount}" required>
+                    <option value="false">Нет</option>
+                    <option value="true">Да</option>
+                </select>
+            </div>
+            <button type="button" class="remove-btn" onclick="this.parentNode.remove()">
+                Удалить
+            </button>
+        `;
+
+        container.appendChild(newBlock);
+        blockCount++;
+    });
+
+    // Валидация формы перед отправкой
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const requiredInputs = this.querySelectorAll('input[required]');
+        let isValid = true;
+        
+        requiredInputs.forEach(input => {
+            if (!input.value && input.type !== 'file') {
+                input.style.borderColor = 'red';
+                isValid = false;
+            } else {
+                input.style.borderColor = '';
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('Пожалуйста, заполните все обязательные поля!');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -198,8 +198,9 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
         time_load = unload_time - last_peak_time
         
         # Визуализация
-        ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
-        ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
+
+        # ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
+        # ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
     
 
         # Легенда
@@ -370,7 +371,7 @@ def insert_load_table(doc, samples_data, decimal_places=3):
     doc.add_paragraph()  # Добавляем пустой абзац для отступа
 
 
-def get_load_at_deformations(Pr, Eps1, deformation_ranges=[(5, 6), (10, 11), (18, 20)]):
+def get_load_at_deformations(Pr, Eps1, deformation_ranges=[(10, 11), (19, 21), (38, 40)]):
     """Возвращает значения нагрузки при указанных диапазонах деформации"""
     results = {}
     
@@ -754,3 +755,74 @@ def generate_individual_protocols(data_list, data_excel, template_path=None, out
             
             print(f"Создано {len(created_files)} протоколов в папке '{output_dir}'")
             return True
+        
+
+
+
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+from scipy.signal import find_peaks, spectrogram
+from django.core.files.storage import FileSystemStorage
+from django.shortcuts import render
+from django.conf import settings
+import json
+
+def save_plot_to_html(fig):
+    """Сохраняет график matplotlib в HTML-совместимый формат"""
+    buf = BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.close(fig)
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    return f"data:image/png;base64,{image_base64}"
+
+def read_ecofizika(file, axes=['2','1']):
+    """Reads data from Ecofizika (Octava)"""
+    vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
+                          dtype=np.float32,
+                          skiprows=4, usecols=range(1,len(axes)+1)).reset_index(drop=True)
+    inf = pd.read_csv(file, sep=' ', encoding='mbcs', header=None, names=None,
+                     skiprows=2, nrows=1).reset_index(drop=True)
+    fs = int(inf.iloc[0, -1])
+    return vibration, fs
+
+def find_res_width2(TR, freqs, peak_pos):
+    """Нахождение ширины резонанса на половине высоты"""
+    try:
+        half_height = TR[peak_pos] / 2**0.5
+
+        # Левая граница
+        left = np.where(TR[:peak_pos] <= half_height)[0]
+        if len(left) > 0 and (peak_pos - left[-1]) >= 1:
+            TR_left = TR[left[-1]:peak_pos+1]
+            freqs_left = freqs[left[-1]:peak_pos+1]
+            if len(TR_left) >= 2 and len(freqs_left) >= 2:
+                f1 = np.interp(half_height, TR_left[::-1], freqs_left[::-1])
+            else:
+                f1 = freqs[left[-1]]
+        else:
+            f1 = freqs[0]
+
+        # Правая граница
+        right = np.where(TR[peak_pos:] <= half_height)[0]
+        if len(right) > 0:
+            right_end = peak_pos + right[0] + 1
+            TR_right = TR[peak_pos:right_end]
+            freqs_right = freqs[peak_pos:right_end]
+            if len(TR_right) >= 2 and len(freqs_right) >= 2:
+                f2 = np.interp(half_height, TR_right, freqs_right)
+            else:
+                f2 = freqs[right_end-1]
+        else:
+            f2 = freqs[-1]
+
+        return f1, f2
+
+    except Exception as e:
+        print(f"[find_res_width2] Ошибка: {e}")
+        return -1, -1
+

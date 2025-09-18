@@ -13,5 +13,6 @@ urlpatterns = [
     path('razr/',views.tensile_test_view, name='razr'),
     path('on_load/',views.on_load, name='on_load'),
     path('help/', include('help.urls')), 
-    path('protocol/', include('protocol.urls')), 
+    path('protocol/', include('protocol.urls')),
+    path('aaa/', views.vibration_analysis___, name='vibro'),
 ]

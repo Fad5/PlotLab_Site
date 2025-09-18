@@ -485,7 +485,7 @@ def find_res_width2(TR, freqs, peak_pos):
         print(f"[find_res_width2] Ошибка: {e}")
         return -1, -1
 
-def read_ecofizika(file, axes = ['2','1']):
+def read_ecofizika(file, axes):
     """Reads data from Ecofizika (Octava)"""
     vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
                             dtype=np.float32,
@@ -1278,3 +1278,379 @@ def generate_excel_response(results):
     response['Content-Disposition'] = 'attachment; filename=results.xlsx'
     return response
 
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+from scipy.signal import find_peaks, spectrogram
+from django.core.files.storage import FileSystemStorage
+from django.shortcuts import render
+from django.conf import settings
+import json
+
+def save_plot_to_html(fig):
+    """Сохраняет график matplotlib в HTML-совместимый формат"""
+    buf = BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.close(fig)
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    return f"data:image/png;base64,{image_base64}"
+
+def read_ecofizika(file, axes):
+    """Reads data from Ecofizika (Octava)"""
+    vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
+                          dtype=np.float32,
+                          skiprows=4, usecols=range(1,len(axes)+1)).reset_index(drop=True)
+    inf = pd.read_csv(file, sep=' ', encoding='mbcs', header=None, names=None,
+                     skiprows=2, nrows=1).reset_index(drop=True)
+    fs = int(inf.iloc[0, -1])
+    return vibration, fs
+
+def find_res_width2(TR, freqs, peak_pos):
+    """Нахождение ширины резонанса на половине высоты"""
+    try:
+        half_height = TR[peak_pos] / 2**0.5
+
+        # Левая граница
+        left = np.where(TR[:peak_pos] <= half_height)[0]
+        if len(left) > 0 and (peak_pos - left[-1]) >= 1:
+            TR_left = TR[left[-1]:peak_pos+1]
+            freqs_left = freqs[left[-1]:peak_pos+1]
+            if len(TR_left) >= 2 and len(freqs_left) >= 2:
+                f1 = np.interp(half_height, TR_left[::-1], freqs_left[::-1])
+            else:
+                f1 = freqs[left[-1]]
+        else:
+            f1 = freqs[0]
+
+        # Правая граница
+        right = np.where(TR[peak_pos:] <= half_height)[0]
+        if len(right) > 0:
+            right_end = peak_pos + right[0] + 1
+            TR_right = TR[peak_pos:right_end]
+            freqs_right = freqs[peak_pos:right_end]
+            if len(TR_right) >= 2 and len(freqs_right) >= 2:
+                f2 = np.interp(half_height, TR_right, freqs_right)
+            else:
+                f2 = freqs[right_end-1]
+        else:
+            f2 = freqs[-1]
+
+        return f1, f2
+
+    except Exception as e:
+        print(f"[find_res_width2] Ошибка: {e}")
+        return -1, -1
+    
+
+def vibration_analysis___(request):
+    error = None
+    data = {
+        'tests': [],
+        'sample_params': {}
+    }
+    context = {
+        'plots': [],
+        'peaks': [],
+        'results_table': [],
+        'sample_names': [],
+        'form_data': {
+            'width': 100,
+            'length': 100,
+            'height_id': 20,
+            'Hz': 700,
+            'left_lim': 5,
+            'show_mean_line': True,
+            'tests': []
+        }
+    }
+    axec = ['2', '1']
+
+    if request.method == 'POST':
+        # Получаем параметры образца и сохраняем их для отображения
+        form_data = {
+            'width': float(request.POST.get('width', 100)),
+            'length': float(request.POST.get('length', 100)),
+            'height_id': float(request.POST.get('height_id', 20)),
+            'Hz': float(request.POST.get('Hz', 700)),
+            'left_lim': float(request.POST.get('left_lim', 5)),
+            'show_mean_line': request.POST.get('show_mean_line', 'true').lower() == 'true',
+            'tests': []
+        }
+        context['form_data'] = form_data
+        print(request.POST.get('show_mean_line', 'true').lower() == 'true')
+        show_mean_line = form_data['show_mean_line']
+        print(show_mean_line)
+
+        # Обрабатываем испытания
+        i = 0
+        while True:
+            height_key = f'height_{i}'
+            mass_key = f'mass_{i}'
+            file_key = f'file_{i}'
+            is_swap = f'swap_{i}'
+            sample_name_key = f'sample_name_{i}'
+            existing_file_key = f'existing_file_{i}'
+            
+            if height_key not in request.POST:
+                break
+                
+            height = request.POST.get(height_key)
+            mass = request.POST.get(mass_key)
+            file = request.FILES.get(file_key)
+            existing_file = request.POST.get(existing_file_key)
+            swap = request.POST.get(is_swap, 'false')
+            sample_name = request.POST.get(sample_name_key, f'Образец_{i+1}')
+
+            if height and mass and (file or existing_file):
+                # Сохраняем данные теста для отображения в форме
+                test_data = {
+                    'loaded_height': float(height),
+                    'mass': float(mass),
+                    'swap': swap,
+                    'sample_name': sample_name,
+                    'file_name': existing_file if existing_file else (file.name if file else '')
+                }
+                form_data['tests'].append(test_data)
+                
+                # Обработка файла
+                if file:
+                    file_path = os.path.join(settings.MEDIA_ROOT, file.name)
+                    with open(file_path, 'wb+') as destination:
+                        for chunk in file.chunks():
+                            destination.write(chunk)
+                    file_path_to_use = file_path
+                    file_name_to_use = file.name
+                elif existing_file:
+                    file_path_to_use = os.path.join(settings.MEDIA_ROOT, existing_file)
+                    file_name_to_use = existing_file
+                else:
+                    continue
+                
+                data['tests'].append({
+                    'loaded_height': float(height),
+                    'mass': float(mass),
+                    'file_path': file_path_to_use,
+                    'file_name': file_name_to_use,
+                    'sample_name': sample_name
+                })
+                context['sample_names'].append(sample_name)
+                
+            i += 1
+
+        # Анализ данных
+        S = form_data['width'] * form_data['length'] * 1e-6
+        limits = (0, int(form_data['Hz']))
+        left_lim = form_data['left_lim']
+
+        combined_transfer_data = []
+        combined_efficiency_data = []
+
+        for idx, test in enumerate(data['tests']):
+            try:
+                vibration_list, fs = read_ecofizika(test['file_path'], axec)
+                
+                # Вычисляем спектрограмму
+                Pxx = {}
+                freqs_ = {}
+                for ax in axec:
+                    y = vibration_list[ax].values
+                    freqs_[ax], _, Pxx[ax] = spectrogram(
+                        y, nperseg=2048, noverlap=256, fs=fs,
+                        scaling='spectrum', mode='magnitude'
+                    )
+
+                last_index = min(int(limits[1] / freqs_['1'][1]), len(freqs_['1']) - 1)
+                freqs = freqs_['1'][1:last_index]
+                left_lim_idx = np.argmax(freqs > left_lim) if len(freqs) > 0 else 0
+
+                TR1 = np.mean(Pxx['2'][1:last_index] / Pxx['1'][1:last_index], axis=1)
+                TR1mean = pd.Series(TR1).rolling(10, min_periods=1, center=True).mean()
+                L = 20 * np.log10(np.mean(Pxx['1'][1:last_index] / Pxx['2'][1:last_index], axis=1))
+                Lmean = pd.Series(L).rolling(10, min_periods=1, center=True).mean()
+
+                # Графики для текущего образца
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+                plt.suptitle(f"Анализ образца: {test['sample_name']}", y=1.02)
+                
+                ax1.plot(freqs, TR1, label='Исходные данные', alpha=0.5)
+                ax1.plot(freqs, TR1mean, label='Сглаженные данные', linewidth=2)
+                ax1.set(xlabel='Частота, Гц', ylabel='Модуль передаточной функции')
+                ax1.grid(True)
+                ax1.legend()
+                
+                ax2.plot(freqs, L, label='Исходные данные', alpha=0.5)
+                ax2.plot(freqs, Lmean, label='Сглаженные данные', linewidth=2)
+                ax2.set(xlabel='Частота, Гц', ylabel='Эффективность, дБ')
+                ax2.grid(True)
+                ax2.legend()
+                
+                plt.tight_layout()
+                context['plots'].append({
+                    'title': test['sample_name'],
+                    'image': save_plot_to_html(fig),
+                    'index': idx
+                })
+
+                # Анализ пиков
+                if len(TR1mean) > left_lim_idx:
+                    max1 = TR1mean[left_lim_idx:].max()
+                    f_peaks = find_peaks(TR1mean[left_lim_idx:], distance=100, prominence=0.1*max1)
+                    
+                    if len(f_peaks[0]) > 0:
+                        f_peak_pos = f_peaks[0][0] + left_lim_idx
+                        Fpeak = freqs[f_peak_pos]
+                        
+                        fig_peak, ax = plt.subplots(figsize=(10, 5))
+                        ax.plot(freqs, TR1mean, label='Передаточная функция')
+                        ax.plot(Fpeak, TR1mean[f_peak_pos], 'ro', label='Резонансный пик')
+                        
+                        f1, f2 = find_res_width2(TR1mean, freqs, f_peak_pos)
+                        if f1 >= 0:
+                            damp = (f2 - f1) / Fpeak
+                            Ed = 4 * np.pi**2 * Fpeak**2 * test['mass'] * (test['loaded_height']*1e-3) / S * 1e-6
+                            
+                            ax.hlines(TR1mean[f_peak_pos]/np.sqrt(2), f1, f2, colors='r', 
+                                     linestyles='dashed', label=f'Ширина резонанса: {f2-f1:.2f} Гц')
+                            ax.annotate(
+                                f"Fpeak: {Fpeak:.2f} Гц\nEd: {Ed:.2f} МПа\nДемпфирование: {damp:.4f}",
+                                xy=(Fpeak, TR1mean[f_peak_pos]), xytext=(10, 10),
+                                textcoords='offset points',
+                                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                                arrowprops=dict(arrowstyle='->')
+                            )
+                            
+                            context['results_table'].append({
+                                'name': test['file_name'],
+                                'sample_name': test['sample_name'],
+                                'Fpeak': Fpeak,
+                                'Ed': Ed,
+                                'damp': damp,
+                                'DM': TR1mean[f_peak_pos]
+                            })
+                            context['peaks'].append({
+                                'sample_index': idx,
+                                'frequency': Fpeak,
+                                'position': [Fpeak, TR1mean[f_peak_pos]],
+                                'resonance_width': [f1, f2]
+                            })
+                        
+                        ax.set(title=f"Резонансный пик - {test['sample_name']}",
+                              xlabel='Частота, Гц', ylabel='Модуль передаточной функции')
+                        ax.grid(True)
+                        ax.legend()
+                        plt.tight_layout()
+                        context['plots'].append({
+                            'title': f"Резонансный пик - {test['sample_name']}",
+                            'image': save_plot_to_html(fig_peak),
+                            'index': idx
+                        })
+
+                # Данные для общих графиков
+                combined_transfer_data.append({
+                    'freqs': freqs,
+                    'TR1mean': TR1mean,
+                    'name': test['sample_name'],
+                    'index': idx
+                })
+                combined_efficiency_data.append({
+                    'freqs': freqs,
+                    'Lmean': Lmean,
+                    'name': test['sample_name'],
+                    'index': idx
+                })
+
+            except Exception as e:
+                error = f"Ошибка при анализе {test['file_name']}: {str(e)}"
+                print(error)
+
+        # Общие графики (СРЕДНЯЯ ЛИНИЯ МЕЖДУ ОБРАЗЦАМИ)
+        if combined_transfer_data and combined_efficiency_data:
+            # 1. Общий график передаточных функций
+            fig_combined, ax = plt.subplots(figsize=(12, 6))
+            
+            # Рисуем все кривые с индивидуальными названиями
+            for data in combined_transfer_data:
+                ax.plot(data['freqs'], data['TR1mean'], label=data['name'], linewidth=2.5, alpha=0.8)
+            
+            # Добавляем среднюю линию между образцами
+            if show_mean_line and len(combined_transfer_data) > 1:
+                # Находим общий диапазон частот
+                min_freq = max([data['freqs'].min() for data in combined_transfer_data])
+                max_freq = min([data['freqs'].max() for data in combined_transfer_data])
+                
+                # Создаем общую сетку частот
+                common_freqs = np.linspace(min_freq, max_freq, 1000)
+                
+                # Интерполируем все данные на общую сетку
+                interpolated_data = []
+                for data in combined_transfer_data:
+                    interp_func = interp1d(data['freqs'], data['TR1mean'], bounds_error=False, fill_value="extrapolate")
+                    interpolated_data.append(interp_func(common_freqs))
+                
+                # Вычисляем среднее значение
+                mean_transfer = np.nanmean(interpolated_data, axis=0)
+                
+                # Рисуем среднюю линию
+                # ax.plot(common_freqs, mean_transfer, 'k--', linewidth=3, 
+                #        label='Средняя линия между образцами', alpha=0.9)
+            
+            ax.set(
+                xlabel='Частота, Гц',
+                ylabel='Модуль передаточной функции'
+            )
+            ax.grid(True)
+            ax.legend()
+            plt.tight_layout()
+            context['plots'].append({
+                'title': 'Общий график передаточных функций',
+                'image': save_plot_to_html(fig_combined),
+                'index': 'combined_transfer'
+            })
+
+            # 2. Общий график эффективности
+            fig_combined_eff, ax = plt.subplots(figsize=(12, 6))
+            
+            # Рисуем все кривые с индивидуальными названиями
+            for data in combined_efficiency_data:
+                ax.plot(data['freqs'], data['Lmean'], label=data['name'], linewidth=2.5, alpha=0.8)
+            
+            # Добавляем среднюю линию между образцами
+            if show_mean_line and len(combined_efficiency_data) > 1:
+                # Находим общий диапазон частот
+                min_freq = max([data['freqs'].min() for data in combined_efficiency_data])
+                max_freq = min([data['freqs'].max() for data in combined_efficiency_data])
+                
+                # Создаем общую сетку частот
+                common_freqs = np.linspace(min_freq, max_freq, 1000)
+                
+                # Интерполируем все данные на общую сетку
+                interpolated_data = []
+                for data in combined_efficiency_data:
+                    interp_func = interp1d(data['freqs'], data['Lmean'], bounds_error=False, fill_value="extrapolate")
+                    interpolated_data.append(interp_func(common_freqs))
+                
+                # Вычисляем среднее значение
+                mean_efficiency = np.nanmean(interpolated_data, axis=0)
+                
+                # Рисуем среднюю линию
+                # ax.plot(common_freqs, mean_efficiency, 'k--', linewidth=3, 
+                #        label='Средняя линия между образцами', alpha=0.9)
+            
+            ax.set(
+                xlabel='Частота, Гц',
+                ylabel='Эффективность, дБ'
+            )
+            ax.grid(True)
+            ax.legend()
+            plt.tight_layout()
+            context['plots'].append({
+                'title': 'Общий график эффективности',
+                'image': save_plot_to_html(fig_combined_eff),
+                'index': 'combined_efficiency'
+            })
+
+    return render(request, 'analysis/vibro.html', context)

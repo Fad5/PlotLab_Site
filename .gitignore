@@ -9,3 +9,5 @@ protocol/migrations/__pycache__/
 protocol/utils/__pycache__/
 media/uploads
 media/reports
+your_database.db
+
