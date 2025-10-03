@@ -16,6 +16,17 @@ import zipfile
 from io import BytesIO
 from django.http import HttpResponse
 import shutil
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+from scipy.signal import find_peaks, spectrogram
+from django.core.files.storage import FileSystemStorage
+from django.shortcuts import render
+from django.conf import settings
+import json
 
 # Настройки графиков
 plt.rcParams['font.family'] = 'Times New Roman'  # Установка шрифта Times New Roman
@@ -756,20 +767,6 @@ def generate_individual_protocols(data_list, data_excel, template_path=None, out
             print(f"Создано {len(created_files)} протоколов в папке '{output_dir}'")
             return True
         
-
-
-
-import os
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
-from scipy.signal import find_peaks, spectrogram
-from django.core.files.storage import FileSystemStorage
-from django.shortcuts import render
-from django.conf import settings
-import json
 
 def save_plot_to_html(fig):
     """Сохраняет график matplotlib в HTML-совместимый формат"""

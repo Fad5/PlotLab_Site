@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (UploadView, ResultsView, download_rar_press_union,download_excel_press_union,
                     download_report, protocol, Press_Protocols_Stubs, download_template, 
                     download_excel_press, generate_and_download_protocols, OD_generate, OD_elone,
-                    download_excel_OD_elone, download_template_OD_elone)
+                    download_excel_OD_elone, download_template_OD_elone, VibrationAnalysisView)
 
 urlpatterns = [
     path('', protocol, name='protocol'),
@@ -20,4 +20,5 @@ urlpatterns = [
     path('OD_elone/', OD_elone, name='OD_elone'),
     path('download-excel-OD-elone/', download_excel_OD_elone, name='download_excel_OD_elone'),
     path('download-template-OD-elone/', download_template_OD_elone, name='download_template_OD_elone'),
+    path('bbb/', VibrationAnalysisView.as_view(), name='ppu_testus_all')
 ]

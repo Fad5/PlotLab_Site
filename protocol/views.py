@@ -644,3 +644,122 @@ def download_template_OD_elone(request):
         return response
     except FileNotFoundError:
         return HttpResponse("Файл шаблона не найден", status=404)
+    
+
+import shutil
+import os
+import tempfile
+from django.shortcuts import render
+from django.http import HttpResponse, FileResponse
+from django.views import View
+from django.core.files.storage import FileSystemStorage
+import pandas as pd
+from .vibro_table_all import process_excel_file, extract_archive, get_archive_files_list, get_file, vibraTableOne, create_full_report
+
+class VibrationAnalysisView(View):
+    def get(self, request):
+        return render(request, 'protocol/pputestus_all.html')
+    
+    def post(self, request):
+        try:
+            # Получаем файлы из формы
+            excel_file = request.FILES.get('excel_file')
+            archive_file = request.FILES.get('archive_file')
+            
+            if not excel_file or not archive_file:
+                return render(request, 'protocol/pputestus_all.html', {
+                    'error': 'Пожалуйста, загрузите оба файла'
+                })
+            
+            # Создаем временные файлы
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_excel:
+                for chunk in excel_file.chunks():
+                    tmp_excel.write(chunk)
+                excel_path = tmp_excel.name
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_archive:
+                for chunk in archive_file.chunks():
+                    tmp_archive.write(chunk)
+                archive_path = tmp_archive.name
+            
+            try:
+                # Обрабатываем Excel файл
+                samples_data, mass_columns = process_excel_file(excel_path)
+                
+                # Извлекаем архив
+                temp_path = extract_archive(archive_path)
+                
+                # Получаем список файлов в архиве
+                list_file = get_archive_files_list(archive_path)
+                
+                # Проверяем наличие всех необходимых файлов
+                missing_files = []
+                for sample_id, data in samples_data.items():
+                    for i in data['name_files']:
+                        if i not in list_file:
+                            missing_files.append(i)
+                
+                if missing_files:
+                    return render(request, 'protocol/pputestus_all.html', {
+                        'error': f'В архиве отсутствуют файлы: {", ".join(missing_files)}'
+                    })
+                
+                # Обрабатываем данные для каждого образца
+                for sample_id, data in samples_data.items():
+                    files = data['name_files'] 
+                    list_files = get_file(temp_path, files)
+                    
+                    a = data['geometric_params']['length']
+                    b = data['geometric_params']['width']
+                    h = data['geometric_params']['height']
+                    loads = mass_columns
+                    heights = [item['value'] for item in data['masses'].values()]
+                    
+                    images, datas, results = vibraTableOne(sample_id, list_files, a, b, h, heights, loads)
+                    
+                    samples_data[sample_id]['images'] = images
+                    samples_data[sample_id]['datas'] = datas
+                    samples_data[sample_id]['results'] = results
+                
+                # Создаем отчет
+                output_filename = 'vibration_analysis_report.docx'
+                output_path = os.path.join(tempfile.gettempdir(), output_filename)
+                create_full_report(samples_data, output_path)
+                
+                # Отправляем файл пользователю
+                response = FileResponse(
+                    open(output_path, 'rb'),
+                    as_attachment=True,
+                    filename=output_filename
+                )
+                
+                # Очистка временных файлов (можно сделать через celery или background task)
+                self.cleanup_temp_files([excel_path, archive_path, output_path])
+                if os.path.exists(temp_path):
+                    shutil.rmtree(temp_path, ignore_errors=True)
+                
+                return response
+                
+            except Exception as e:
+                # Очистка в случае ошибки
+                self.cleanup_temp_files([excel_path, archive_path])
+                return render(request, 'protocol/pputestus_all.html', {
+                    'error': f'Ошибка обработки: {str(e)}'
+                })
+                
+        except Exception as e:
+            return render(request, 'protocol/pputestus_all.html', {
+                'error': f'Ошибка: {str(e)}'
+            })
+    
+    def cleanup_temp_files(self, file_paths):
+        """Очистка временных файлов"""
+
+        for path in file_paths:
+            try:
+                if os.path.isfile(path):
+                    os.unlink(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path, ignore_errors=True)
+            except:
+                pass

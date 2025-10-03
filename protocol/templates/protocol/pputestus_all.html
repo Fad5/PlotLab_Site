@@ -1,0 +1,409 @@
+{% extends "analysis/base.html" %}
+{% load static %}
+
+{% block page_title %}Анализ виброизоляционных характеристик{% endblock %}
+
+{% block style %}
+    <style>
+        /* Основные стили */
+        h1, h2, h3, h4 {
+            color: #2c3e50;
+        }
+        h2 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        
+        /* Контейнер формы */
+        .form-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        /* Секция скачивания шаблона */
+        .download-section {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.3s;
+            width: fit-content;
+        }
+        .download-btn:hover {
+            background-color: #2980b9;
+            color: white;
+        }
+        
+        /* Форма и элементы управления */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .form-control-file {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            transition: border-color 0.3s;
+        }
+        .form-control-file:hover {
+            border-color: #3498db;
+        }
+        
+        /* Кнопка отправки */
+        .submit-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Сообщения об ошибках */
+        .error-message {
+            background-color: #fee;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        /* Секции инструкций */
+        .requirement {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .process-step {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .step-number {
+            background-color: #3498db;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .note {
+            background-color: #fffde7;
+            padding: 15px;
+            border-left: 4px solid #ffd600;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        /* Индикатор загрузки */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    
+    <!-- Сообщения об ошибках -->
+    {% if error %}
+    <div class="error-message">
+        <strong>Ошибка:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    <div class="form-container">   
+        <!-- Форма загрузки файлов -->
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_excel_file">Excel файл с параметрами образцов (.xlsx):</label>
+                <input class="form-control-file" type="file" name="excel_file" id="id_excel_file" accept=".xlsx,.xls" required>
+                <small>Файл должен содержать геометрические параметры образцов</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="id_archive_file">Архив с данными измерений (.zip, .rar):</label>
+                <input class="form-control-file" type="file" name="archive_file" id="id_archive_file" accept=".zip,.rar" required>
+                <small>Архив должен содержать CSV файлы с результатами измерений</small>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <i class="fas fa-chart-line"></i> Сгенерировать отчет
+            </button>
+        </form>
+        
+        <!-- Индикатор загрузки -->
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Обработка данных... Это может занять несколько минут</p>
+        </div>
+    </div>
+    
+    <!-- Секция скачивания шаблонов -->
+    <div class="download-section">
+        <h4>Скачать шаблоны</h4>
+        
+        <p>Используйте стандартные шаблоны для подготовки данных:</p>
+        <a href="{% static 'templates/vibration_template.xlsx' %}" class="download-btn">
+            <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
+        </a>
+        <a href="{% static 'templates/vibration_example.zip' %}" class="download-btn">
+            <i class="fas fa-file-archive"></i> Пример данных (.zip)
+        </a>
+    </div>
+</div>
+
+<!-- Инструкция -->
+<h1>Инструкция по использованию:</h1>
+
+<h2>1. Подготовка файлов</h2>
+
+<div class="requirement">
+    <h3>Требования к Excel-файлу:</h3>
+    <p>Файл должен содержать следующие обязательные столбцы:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Название столбца</th>
+                <th>Описание</th>
+                <th>Формат</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Образец</strong></td>
+                <td>Идентификатор образца</td>
+                <td>Число (1, 2, 3...)</td>
+            </tr>
+            <tr>
+                <td><strong>Высота</strong></td>
+                <td>Высота образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Ширина</strong></td>
+                <td>Ширина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Длина</strong></td>
+                <td>Длина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Масса</strong></td>
+                <td>Базовая масса образца</td>
+                <td>Числовое значение (кг)</td>
+            </tr>
+            <tr>
+                <td><strong>Массы пригрузов</strong></td>
+                <td>Столбцы с числовыми названиями (2, 5, 10 и т.д.)</td>
+                <td>Дополнительные параметры для каждого пригруза</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="requirement">
+    <h3>Требования к архиву с данными:</h3>
+    <ul>
+        <li>Поддерживаемые форматы: <strong>.zip</strong> или <strong>.rar</strong></li>
+        <li>Архив должен содержать CSV файлы с результатами измерений</li>
+        <li>Имена файлов должны соответствовать шаблону: <strong>"образец_масса.csv"</strong> (например: "1_2.csv", "1_5.csv")</li>
+        <li>CSV файлы должны содержать данные в формате: частота, амплитуда</li>
+        <li>Рекомендуется не более 15 образцов в одном архиве</li>
+    </ul>
+</div>
+
+<div class="note">
+    <strong>Пример структуры Excel файла:</strong>
+    <div class="example-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Образец</th>
+                    <th>Высота</th>
+                    <th>Ширина</th>
+                    <th>Длина</th>
+                    <th>Масса</th>
+                    <th>2</th>
+                    <th>5</th>
+                    <th>10</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>10.0</td>
+                    <td>100.0</td>
+                    <td>100.0</td>
+                    <td>120.0</td>
+                    <td>9.0</td>
+                    <td>8.0</td>
+                    <td>7.0</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>10.0</td>
+                    <td>100.0</td>
+                    <td>100.0</td>
+                    <td>125.0</td>
+                    <td>9.0</td>
+                    <td>8.0</td>
+                    <td>7.0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<h2>2. Процесс работы</h2>
+
+<div class="process-step">
+    <div class="step-number">1</div>
+    <div class="step-content">
+        <strong>Загрузка файлов через форму</strong>
+        <p>На странице анализа:</p>
+        <ol>
+            <li>Выберите Excel файл с параметрами образцов</li>
+            <li>Выберите архив с данными измерений</li>
+            <li>Нажмите кнопку "Сгенерировать отчет"</li>
+        </ol>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">2</div>
+    <div class="step-content">
+        <strong>Обработка файлов системой</strong>
+        <p>Система выполняет следующие действия:</p>
+        <ul>
+            <li>Проверяет наличие всех обязательных столбцов в Excel-файле</li>
+            <li>Сопоставляет CSV файлы с параметрами образцов</li>
+            <li>Анализирует амплитудно-частотные характеристики</li>
+            <li>Вычисляет динамический модуль упругости и коэффициенты потерь</li>
+            <li>Строит сравнительные графики</li>
+        </ul>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+        <strong>Формирование результата</strong>
+        <p>После обработки:</p>
+        <ul>
+            <li>Создается подробный отчет в формате Word (.docx)</li>
+            <li>Формируются таблицы с результатами испытаний</li>
+            <li>Строятся графики амплитудно-частотных характеристик</li>
+            <li>Создаются сравнительные графики разных образцов</li>
+            <li>Отчет автоматически загружается на ваш компьютер</li>
+        </ul>
+    </div>
+</div>
+
+<h2>3. Содержание отчета</h2>
+
+<div class="requirement">
+    <ul>
+        <li><strong>Геометрические характеристики образцов</strong> - таблица с параметрами</li>
+        <li><strong>Результаты испытаний</strong> - подробные таблицы для каждого образца</li>
+        <li><strong>Средние значения характеристик</strong> - с коэффициентами вариации</li>
+        <li><strong>Графики зависимостей</strong> - динамический модуль упругости от давления</li>
+        <li><strong>Сравнительные графики</strong> - АЧХ и эффективности виброизоляции</li>
+        <li><strong>Графики всех образцов</strong> - индивидуальные характеристики</li>
+    </ul>
+</div>
+
+<h2>4. Ограничения и рекомендации</h2>
+
+<div class="requirement">
+    <ul>
+        <li>Максимальный размер архива: 50 МБ</li>
+        <li>Максимальное количество образцов: 15</li>
+        <li>Максимальное количество пригрузов на образец: 10</li>
+        <li>Для точных результатов убедитесь в правильности измерений</li>
+        <li>Избегайте специальных символов в именах файлов</li>
+        <li>Время обработки зависит от количества данных (1-5 минут)</li>
+    </ul>
+</div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        // Показываем индикатор загрузки
+        document.getElementById('loadingIndicator').style.display = 'block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+    });
+</script>
+
+{% endblock %}
