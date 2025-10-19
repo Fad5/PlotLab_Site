@@ -19,13 +19,13 @@
         .form-container {
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             padding: 25px;
             margin-bottom: 30px;
         }
         
         /* Секция скачивания шаблона */
         .download-section {
+            margin-top: 70px;
             background-color: #f8f9fa;
             border-left: 4px solid #3498db;
             padding: 20px;
@@ -198,20 +198,8 @@
 {% block content %}
 <div class="container">
     <div class="form-container">
-        <h2>Генерация протоколов</h2>
         
-        <!-- Секция скачивания шаблона -->
-        <div class="download-section">
-            <h4>Скачать шаблон протокола</h4>
-            <p>Используйте стандартные шаблоны для подготовки данных:</p>
-            <a href="{% url 'download_template_OD_elone' %}" class="download-btn">
-                <i class="fas fa-file-download"></i> Скачать шаблон (.docx)
 
-            <a href="{% url 'download_excel_OD_elone' %}" class="download-btn">
-                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
-            </a>
-            </a>
-        </div>
         
         <!-- Форма загрузки файлов -->
         <form method="post" enctype="multipart/form-data" onsubmit="return validatePercentages()">
@@ -223,7 +211,7 @@
             </div>
             
             <div class="form-group">
-                <label for="excelFile">Данные образцов (.xlsx):</label>
+                <label for="excelFile">Excel файл с параметрами образцов (.xlsx):</label>
                 <input class="form-control-file" type="file" name="excelFile" id="excelFile" accept=".xlsx,.xls" required>
             </div>
 
@@ -239,9 +227,22 @@
             
             <!-- Кнопка отправки -->
             <button type="submit" class="submit-btn">
-                <i class="fas fa-file-export"></i> Сгенерировать протоколы
+                <i class="fas fa-file-export"></i>Создать
             </button>
         </form>
+
+                <!-- Секция скачивания шаблона -->
+                <div class="download-section">
+                    <h4>Скачать шаблоны</h4>
+                    <p>Используйте стандартные шаблоны для подготовки данных:</p>
+                    <a href="{% url 'download_template_OD_elone' %}" class="download-btn">
+                        <i class="fas fa-file-download"></i> Скачать шаблон (.docx)
+        
+                    <a href="{% url 'download_excel_OD_elone' %}" class="download-btn">
+                        <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
+                    </a>
+                    </a>
+                </div>
     </div>
 </div>
 
