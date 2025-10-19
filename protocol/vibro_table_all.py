@@ -360,7 +360,7 @@ def create_full_report(samples_data, output_file='Оранжевый.docx'):
     table1 = doc.add_table(rows=1, cols=5)
     table1.style = 'Table Grid'
     
-    headers = ['Образец', 'Высота (мм)', 'Ширина (мм)', 'Длина (мм)', 'Базовая масса (кг)']
+    headers = ['Образец', 'Высота (мм)', 'Ширина (мм)', 'Длина (мм)', 'Базовая масса (г)']
     for i, header in enumerate(headers):
         cell = table1.cell(0, i)
         cell.text = header
