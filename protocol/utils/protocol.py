@@ -82,54 +82,61 @@ def data_modul_young(df, width, length, height):
         print("Недостаточно пиков для анализа (минимум 3)")
         return None
 
-    cycle_index = 1
-    cycle_length = peaks[cycle_index] - peaks[cycle_index - 1]
-    Start = peaks[cycle_index] - cycle_length + 1
-    Finish = peaks[cycle_index]
+    Start = peaks[2] - peaks[0] + 1
+    Finish = peaks[2] + 1
 
-    F1 = F[Start:Finish + 1]
-    S1 = S[Start:Finish + 1]
-
-    w = 2 * int(np.ceil(sr))
+    print('Start', Start)
+    print('Finish', Finish)
+    F1 = F[Start-1:Finish]
+    S1 = S[Start-1:Finish]
+    w = int(np.ceil(sr * 2))
     n = len(F1) // w
-
+    print(w, 'Ширина окна')
+    print(n, 'Количество циклов')
+    # Точный аналог MATLAB кода
+    Start = peaks[2] - peaks[0]  # locs(3)-locs(1)+1 (индексация с 0 в Python)
+    Finish = peaks[2]  # locs(3)
+    F1 = F[Start:Finish]  # F(Start:Finish)
+    S1 = S[Start:Finish]  # S(Start:Finish)
+    w = 2 * math.ceil(sr)  # w=2*ceil(sr)
+    n = math.floor(len(F1) / w)  # floor(length(F1)/w)
     Pr = np.zeros(n)
-    E1 = np.zeros(n)
+    E1 = np.zeros(n) 
     Eps1 = np.zeros(n)
-
+    print(f"Размер F1: {len(F1)}, w: {w}, n: {n}")
     for i in range(n):
-        idx1 = i * w
-        idx2 = (i + 1) * w - 1
+        # Точная MATLAB индексация (начинается с 1)
+        idx1 = i * w  # (i-1)*w+1 в MATLAB → i*w в Python (т.к. i начинается с 0)
+        idx2 = (i + 1) * w - 1  # i*w в MATLAB → (i+1)*w-1 в Python
+        
+        # Проверяем границы (в MATLAB нет проверки, но добавим для безопасности)
         if idx2 >= len(F1):
             idx2 = len(F1) - 1
-
-        Pr[i] = (F1[idx1] + F1[idx2]) / 2 / area * 1e-6
-        delta_F = F1[idx2] - F1[idx1]
-        delta_S = S1[idx2] - S1[idx1]
-
+        
+        # Точные MATLAB формулы:
+        Pr[i] = (F1[idx1] + F1[idx2]) / (2 * area)  # (F1((i-1)*w+1)+F1(i*w))/2/A
+        
+        delta_F = F1[idx2] - F1[idx1]  # F1(i*w)-F1((i-1)*w+1)
+        delta_S = S1[idx2] - S1[idx1]  # S1(i*w)-S1((i-1)*w+1)
+        
+        # E1(i)=(F1(i*w)-F1((i-1)*w+1))./A./((S1(i*w)-S1((i-1)*w+1))./h0)
         if delta_S != 0:
-            E1[i] = (delta_F / area * 1e-6) / (delta_S / initial_height)
-
-        Eps1[i] = (S1[idx1] + S1[idx2]) / 2 / initial_height
-
+            E1[i] = (delta_F / area) / (delta_S / initial_height)
+        else:
+            E1[i] = 0
+        
+        # Eps1(i)=(S1((i-1)*w+1)+S1(i*w))/2/h0
+        Eps1[i] = (S1[idx1] + S1[idx2]) / (2 * initial_height)
+    # Точный аналог MATLAB коррекции нуля
     if len(Pr) > 0:
-        Pr = Pr - Pr[0]
-
-    Pr, E1, Eps1 = Pr[3:], E1[3:], Eps1[3:]
-    Eps1 = Eps1[int(len(Eps1)/2):] 
-    E1 = E1[int(len(E1)/2):]  
-    Pr = Pr[int(len(Pr)/2):] 
-
-    if Pr.size > 2:
-        min_Pr = np.min(Pr)
-        Eps1 = Eps1 - Eps1[0]
-        Pr_ = Pr + (-min_Pr)
-    else:
-        Pr_ = Pr
-
-    E1 = E1[:] * 1_000_000
-    Eps1 = Eps1[:] * 100 
-    Pr = Pr_[:] * 1_000_000
+        del_val = Pr[0]  # del=Pr(1)
+        for i in range(len(Pr)):
+            Pr[i] = Pr[i] - del_val  # Pr(i)=Pr(i)-del
+    # Убираем лишние преобразования которые были в старом коде
+    Eps1 = Eps1 * 100  # преобразование в %
+    E1 = E1  # оставляем как есть (в МПа)
+    Pr = Pr  # оставляем как есть (в МПа)
+    print(f"Результат: Pr[{len(Pr)}], E1[{len(E1)}], Eps1[{len(Eps1)}]")
     
     return E1, Eps1, Pr
 
@@ -511,13 +518,6 @@ def insert_samples_graphs(doc, samples_data):
 def fill_template(template_path, samples_data, output_filename):
     """Заполняет шаблон документа данными с правильным расположением элементов"""
     doc = Document(template_path)
-
-    print(template_path)
-    print('#' * 20)
-    print(output_filename)
-    print('#' * 20)
-    print(samples_data)
-    print('#' * 20)
     
     # Сначала обрабатываем все параграфы шаблона
     for paragraph in list(doc.paragraphs):  # Используем list() для создания копии

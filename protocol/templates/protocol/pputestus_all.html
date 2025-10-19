@@ -187,13 +187,11 @@
             <div class="form-group">
                 <label for="id_excel_file">Excel файл с параметрами образцов (.xlsx):</label>
                 <input class="form-control-file" type="file" name="excel_file" id="id_excel_file" accept=".xlsx,.xls" required>
-                <small>Файл должен содержать геометрические параметры образцов</small>
             </div>
             
             <div class="form-group">
                 <label for="id_archive_file">Архив с данными измерений (.zip, .rar):</label>
                 <input class="form-control-file" type="file" name="archive_file" id="id_archive_file" accept=".zip,.rar" required>
-                <small>Архив должен содержать CSV файлы с результатами измерений</small>
             </div>
             
             <button type="submit" class="submit-btn" id="submitBtn">
@@ -213,10 +211,10 @@
         <h4>Скачать шаблоны</h4>
         
         <p>Используйте стандартные шаблоны для подготовки данных:</p>
-        <a href="{% static 'templates/vibration_template.xlsx' %}" class="download-btn">
+        <a href="{% url 'download_excel_vibrotable_all' %}" class="download-btn">
             <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
         </a>
-        <a href="{% static 'templates/vibration_example.zip' %}" class="download-btn">
+        <a href="{% url 'download_rar_vibrotable_all' %}" class="download-btn">
             <i class="fas fa-file-archive"></i> Пример данных (.zip)
         </a>
     </div>

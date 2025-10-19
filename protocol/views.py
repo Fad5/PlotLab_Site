@@ -646,6 +646,22 @@ def download_template_OD_elone(request):
         return HttpResponse("Файл шаблона не найден", status=404)
     
 
+def download_excel_vibrotable_all(request):
+    """
+    Функция для скачивания excel файла в котором находятся геометрические харасктеристики,
+    обеденненный вибростол
+    """
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'Exemple_vibrotable_all.xlsx')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
+def download_rar_vibrotable_all(request):
+    """
+    Функция для скачивания zip-архива в котором находятся файлы с испытаний,
+    обеденненный вибростол
+    """
+    file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'Exemple_vibrotable_all.zip')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True)
+
 import shutil
 import os
 import tempfile

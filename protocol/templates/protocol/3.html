@@ -26,6 +26,7 @@
         
         /* Секция скачивания шаблона */
         .download-section {
+            margin-top: 20px;
             background-color: #f8f9fa;
             border-left: 4px solid #3498db;
             padding: 20px;
@@ -162,7 +163,17 @@
             background-color: #2980b9;
         }
         
-        /* Остальные стили (requirement, note и т.д.) остаются без изменений */
+        /* Сообщения об ошибках */
+        .error-message {
+            background-color: #fee;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        /* Секции инструкций */
         .requirement {
             background-color: #f8f9fa;
             border-left: 4px solid #3498db;
@@ -192,29 +203,120 @@
             border-left: 4px solid #ffd600;
             margin: 20px 0;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        /* Индикатор загрузки */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Стили для готового файла */
+        .download-ready {
+            background-color: #e8f5e8;
+            border-left: 4px solid #4caf50;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .download-ready h4 {
+            color: #2e7d32;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .download-success {
+            background-color: #4caf50;
+        }
+        
+        .download-success:hover {
+            background-color: #45a049;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
+    <!-- Сообщения об ошибках -->
+    {% if error %}
+    <div class="error-message">
+        <strong>Ошибка:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    <!-- Индикатор загрузки показывается только если идет обработка -->
+    {% if processing %}
+    <div class="loading" id="loadingIndicator" style="display: block;">
+        <div class="spinner"></div>
+        <p>Обработка данных... Это может занять несколько минут</p>
+    </div>
+    {% endif %}
+    
+    <!-- Если файл готов -->
+    {% if download_url %}
+    <div class="download-ready">
+        <h4>Файл готов!</h4>
+        <a href="{{ download_url }}" class="download-btn download-success">
+            <i class="fas fa-download"></i> Скачать протоколы
+        </a>
+        <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
+            <small>Если скачивание не началось автоматически, нажмите на ссылку выше</small>
+        </p>
+    </div>
+    
+    <!-- Автоматическое скачивание -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Автоматически начинаем скачивание
+        setTimeout(function() {
+            window.location.href = '{{ download_url }}';
+        }, 1000);
+        
+        // Скрываем индикатор загрузки если он был показан
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+    </script>
+    {% endif %}
+    
     <div class="form-container">
-        <h2>Генерация протоколов</h2>
-        
-        <!-- Секция скачивания шаблона -->
-        <div class="download-section">
-            <h4>Скачать шаблон протокола</h4>
-            <p>Используйте стандартные шаблоны для подготовки данных:</p>
-            <a href="{% url 'download_template' %}" class="download-btn">
-                <i class="fas fa-file-download"></i> Скачать шаблон (.docx)
-
-            <a href="{% url 'download_excel_press' %}" class="download-btn">
-                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
-            </a>
-            </a>
-        </div>
-        
         <!-- Форма загрузки файлов -->
-        <form method="post" enctype="multipart/form-data" onsubmit="return validatePercentages()">
+        <form method="post" enctype="multipart/form-data" id="uploadForm" onsubmit="return showLoading()">
             {% csrf_token %}
             
             <div class="form-group">
@@ -223,7 +325,7 @@
             </div>
             
             <div class="form-group">
-                <label for="excelFile">Данные образцов (.xlsx):</label>
+                <label for="excelFile">Excel файл с параметрами образцов (.xlsx):</label>
                 <input class="form-control-file" type="file" name="excelFile" id="excelFile" accept=".xlsx,.xls" required>
             </div>
 
@@ -265,234 +367,330 @@
             </div>
             
             <!-- Кнопка отправки -->
-            <button type="submit" class="submit-btn">
+            <button type="submit" class="submit-btn" id="submitBtn">
                 <i class="fas fa-file-export"></i> Сгенерировать протоколы
             </button>
         </form>
+        
+        <!-- Индикатор загрузки (скрыт по умолчанию) -->
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Обработка данных... Это может занять несколько минут</p>
+        </div>
+
+        <!-- Секция скачивания шаблона -->
+        <div class="download-section">
+            <h4>Скачать шаблоны</h4>
+            <p>Используйте стандартные шаблоны для подготовки данных:</p>
+            <a href="{% url 'download_template' %}" class="download-btn">
+                <i class="fas fa-file-download"></i> Скачать шаблон (.docx)
+            </a>
+            <a href="{% url 'download_excel_press' %}" class="download-btn">
+                <i class="fas fa-file-excel"></i> Шаблон Excel (.xlsx)
+            </a>
+        </div>
     </div>
 </div>
 
 <script>
-    // Функция для валидации процентных значений
-    function validatePercentages() {
-        // Получаем все поля ввода
-        const percentageInputs = document.querySelectorAll('.range-inputs input[type="number"]');
-        let isValid = true;
-        
-        // Проверяем каждое поле
-        percentageInputs.forEach(input => {
-            if (input.value < 0) {
-                input.value = 0; // Устанавливаем минимальное значение 0
-                isValid = false;
-            }
-        });
-        
-        // Дополнительная проверка, чтобы "До" было больше или равно "От"
-        const percentageGroups = document.querySelectorAll('.percentage-group');
-        percentageGroups.forEach(group => {
-            const minInput = group.querySelector('input[placeholder="От"]');
-            const maxInput = group.querySelector('input[placeholder="До"]');
-            
-            if (parseFloat(maxInput.value) < parseFloat(minInput.value)) {
-                maxInput.value = minInput.value;
-                isValid = false;
-            }
-        });
-        
-        if (!isValid) {
-            alert('Пожалуйста, проверьте введенные значения. Процентные значения не могут быть отрицательными, а максимальное значение не может быть меньше минимального.');
+// Функция для валидации процентных значений
+function validatePercentages() {
+    // Получаем все поля ввода
+    const percentageInputs = document.querySelectorAll('.range-inputs input[type="number"]');
+    let isValid = true;
+    
+    // Проверяем каждое поле
+    percentageInputs.forEach(input => {
+        if (input.value < 0) {
+            input.value = 0; // Устанавливаем минимальное значение 0
+            isValid = false;
         }
+    });
+    
+    // Дополнительная проверка, чтобы "До" было больше или равно "От"
+    const percentageGroups = document.querySelectorAll('.percentage-group');
+    percentageGroups.forEach(group => {
+        const minInput = group.querySelector('input[placeholder="От"]');
+        const maxInput = group.querySelector('input[placeholder="До"]');
         
-        return isValid;
+        if (parseFloat(maxInput.value) < parseFloat(minInput.value)) {
+            maxInput.value = minInput.value;
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        alert('Пожалуйста, проверьте введенные значения. Процентные значения не могут быть отрицательными, а максимальное значение не может быть меньше минимального.');
+    }
+    
+    return isValid;
+}
+
+// Функция для показа индикатора загрузки
+function showLoading() {
+    if (validatePercentages()) {
+        // Показываем индикатор
+        document.getElementById('loadingIndicator').style.display = 'block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+        return true;
+    }
+    return false;
+}
+
+// Скрываем индикатор если на странице есть готовый файл
+document.addEventListener('DOMContentLoaded', function() {
+    const downloadReady = document.querySelector('.download-ready');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (downloadReady && loadingIndicator) {
+        loadingIndicator.style.display = 'none';
     }
     
     // Добавляем обработчики событий для полей ввода
-    document.addEventListener('DOMContentLoaded', function() {
-        const percentageInputs = document.querySelectorAll('.range-inputs input[type="number"]');
-        
-        percentageInputs.forEach(input => {
-            input.addEventListener('change', function() {
-                if (this.value < 0) {
-                    this.value = 0;
-                }
-            });
+    const percentageInputs = document.querySelectorAll('.range-inputs input[type="number"]');
+    
+    percentageInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value < 0) {
+                this.value = 0;
+            }
         });
     });
+});
 </script>
 
-    <h1>Инструкция: </h1>
+<!-- Инструкция -->
+<h1>Инструкция по использованию:</h1>
 
-    <h2>1. Подготовка файлов</h2>
+<h2>1. Подготовка файлов</h2>
+
+<div class="requirement">
+    <h3>Требования к Excel-файлу:</h3>
+    <p>Файл должен содержать следующие обязательные столбцы:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Название столбца</th>
+                <th>Описание</th>
+                <th>Формат</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Образец</strong></td>
+                <td>Идентификатор образца</td>
+                <td>Текст (будет использован в имени файла)</td>
+            </tr>
+            <tr>
+                <td><strong>Ширина</strong></td>
+                <td>Ширина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Длина</strong></td>
+                <td>Длина образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Высота</strong></td>
+                <td>Высота образца</td>
+                <td>Числовое значение (мм)</td>
+            </tr>
+            <tr>
+                <td><strong>Масса</strong></td>
+                <td>Масса образца</td>
+                <td>Числовое значение (г)</td>
+            </tr>
+            <tr>
+                <td><strong>Номер протокола</strong></td>
+                <td>Номер протокола</td>
+                <td>Текст или число</td>
+            </tr>
+            <tr>
+                <td><strong>Дата</strong></td>
+                <td>Дата проведения испытаний</td>
+                <td>Дата в любом формате</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="requirement">
+    <h3>Требования к шаблону DOCX:</h3>
+    <ul>
+        <li>Должен быть создан в Microsoft Word или совместимом редакторе</li>
+        <li>Должен содержать поля для подстановки в формате: <code>{{ Образец }}</code>, <code>{{ Ширина }}</code> и т.д.</li>
+        <li>Поддерживаются все стандартные элементы Word (таблицы, изображения, форматирование)</li>
+    </ul>
+</div>
+
+<div class="note">
+    <strong>Пример структуры шаблона:</strong>
+    <div class="code">
+        ПРОТОКОЛ №{{ Номер_протокола }}<br>
+        Дата: {{ Дата }}<br><br>
+        Наименование образца: {{ Образец }}<br>
+        Параметры:<br>
+        - Ширина: {{ Ширина }} мм<br>
+        - Длина: {{ Длина }} мм<br>
+        - Высота: {{ Высота }} мм<br>
+        - Масса: {{ Масса }} г
+    </div>
+</div>
+
+<h2>2. Процесс работы</h2>
+
+<div class="process-step">
+    <div class="step-number">1</div>
+    <div class="step-content">
+        <strong>Загрузка файлов через форму</strong>
+        <p>На странице генерации:</p>
+        <ol>
+            <li>Выберите файл шаблона (.docx)</li>
+            <li>Выберите файл с данными (.xlsx или .xls)</li>
+            <li>Укажите диапазоны процентных значений сжатия</li>
+            <li>Выберите тип испытуемого образца</li>
+            <li>Нажмите кнопку "Сгенерировать протоколы"</li>
+        </ol>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">2</div>
+    <div class="step-content">
+        <strong>Обработка файлов системой</strong>
+        <p>Система выполняет следующие действия:</p>
+        <ul>
+            <li>Проверяет наличие всех обязательных столбцов в Excel-файле</li>
+            <li>Читает данные из каждой строки Excel-файла</li>
+            <li>Для каждой строки создает отдельный протокол, подставляя данные в шаблон</li>
+            <li>Применяет указанные процентные диапазоны сжатия</li>
+        </ul>
+    </div>
+</div>
+
+<div class="process-step">
+    <div class="step-number">3</div>
+    <div class="step-content">
+        <strong>Формирование результата</strong>
+        <p>После обработки всех строк:</p>
+        <ul>
+            <li>Все сгенерированные протоколы упаковываются в ZIP-архив</li>
+            <li>Архив автоматически загружается на ваш компьютер</li>
+            <li>Имена файлов в архиве: <code>Протокол_[Образец].docx</code></li>
+        </ul>
+    </div>
+</div>
+
+<h2>3. Пример использования</h2>
+
+<div class="note">
+    <strong>Пример Excel-файла:</strong>
+    <table>
+        <thead>
+            <tr>
+                <th>Образец</th>
+                <th>Ширина</th>
+                <th>Длина</th>
+                <th>Высота</th>
+                <th>Масса</th>
+                <th>Номер протокола</th>
+                <th>Дата</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>sample_1</td>
+                <td>10.2</td>
+                <td>15.5</td>
+                <td>5.1</td>
+                <td>25.4</td>
+                <td>2023-001</td>
+                <td>01.01.2023</td>
+            </tr>
+            <tr>
+                <td>sample_2</td>
+                <td>9.8</td>
+                <td>14.9</td>
+                <td>4.9</td>
+                <td>24.1</td>
+                <td>2023-002</td>
+                <td>02.01.2023</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="note">
+    <strong>Пример процентных значений сжатия:</strong>
+    <table>
+        <thead>
+            <tr>
+                <th>Тип сжатия</th>
+                <th>Минимальное значение</th>
+                <th>Максимальное значение</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>10% сжатие</td>
+                <td>0.05</td>
+                <td>0.15</td>
+            </tr>
+            <tr>
+                <td>20% сжатие</td>
+                <td>0.15</td>
+                <td>0.25</td>
+            </tr>
+            <tr>
+                <td>40% сжатие</td>
+                <td>0.35</td>
+                <td>0.45</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="note">
+    <strong>Результат:</strong>
+    <p>Будет создан ZIP-архив, содержащий два файла:</p>
+    <ul>
+        <li><code>Протокол_sample_1.docx</code></li>
+        <li><code>Протокол_sample_2.docx</code></li>
+    </ul>
+</div>
+
+<h2>4. Ограничения и рекомендации</h2>
+
+<div class="requirement">
+    <ul>
+        <li>Максимальное количество строк в Excel-файле: 100</li>
+        <li>Размер шаблона DOCX не должен превышать 5 МБ</li>
+        <li>Размер Excel-файла не должен превышать 10 МБ</li>
+        <li>Для специальных форматов дат используйте предварительное форматирование в Excel</li>
+        <li>Избегайте специальных символов в именах образцов</li>
+        <li>Процентные значения должны быть положительными числами</li>
+        <li>Максимальное значение не может быть меньше минимального</li>
+        <li>Время обработки зависит от количества данных (1-3 минуты)</li>
+    </ul>
+</div>
+
+<h2>5. Типы образцов</h2>
+
+<div class="requirement">
+    <h3>Прямоугольная пластина:</h3>
+    <ul>
+        <li>Имеет разные значения ширины и длины</li>
+        <li>Подходит для стандартных прямоугольных образцов</li>
+        <li>Расчеты производятся с учетом разных размеров по осям</li>
+    </ul>
     
-    <div class="requirement">
-        <h3>Требования к Excel-файлу:</h3>
-        <p>Файл должен содержать следующие обязательные столбцы:</p>
-        <table>
-            <thead>
-                <tr>
-                    <th>Название столбца</th>
-                    <th>Описание</th>
-                    <th>Формат</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Образец</strong></td>
-                    <td>Идентификатор образца</td>
-                    <td>Текст (будет использован в имени файла)</td>
-                </tr>
-                <tr>
-                    <td><strong>Ширина</strong></td>
-                    <td>Ширина образца</td>
-                    <td>Числовое значение</td>
-                </tr>
-                <tr>
-                    <td><strong>Длина</strong></td>
-                    <td>Длина образца</td>
-                    <td>Числовое значение</td>
-                </tr>
-                <tr>
-                    <td><strong>Высота</strong></td>
-                    <td>Высота образца</td>
-                    <td>Числовое значение</td>
-                </tr>
-                <tr>
-                    <td><strong>Масса</strong></td>
-                    <td>Масса образца</td>
-                    <td>Числовое значение</td>
-                </tr>
-                <tr>
-                    <td><strong>Номер протокола</strong></td>
-                    <td>Номер протокола</td>
-                    <td>Текст или число</td>
-                </tr>
-                <tr>
-                    <td><strong>Дата</strong></td>
-                    <td>Дата проведения испытаний</td>
-                    <td>Дата в любом формате</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="requirement">
-        <h3>Требования к шаблону DOCX:</h3>
-        <ul>
-            <li>Должен быть создан в Microsoft Word или совместимом редакторе</li>
-            <li>Должен содержать поля для подстановки в формате: <code>{{ Образец }}</code>, <code>{{ Ширина }}</code> и т.д.</li>
-            <li>Поддерживаются все стандартные элементы Word (таблицы, изображения, форматирование)</li>
-        </ul>
-    </div>
-    <div class="note">
-        <strong>Пример структуры шаблона:</strong>
-        <div class="code">
-            ПРОТОКОЛ №{{ Номер_протокола }}<br>
-            Дата: {{ Дата }}<br><br>
-            Наименование образца: {{ Образец }}<br>
-            Параметры:<br>
-            - Ширина: {{ Ширина }} мм<br>
-            - Длина: {{ Длина }} мм<br>
-            - Высота: {{ Высота }} мм<br>
-            - Масса: {{ Масса }} г
-        </div>
-    </div>
-
-    <h2>2. Процесс работы</h2>
-
-    <div class="process-step">
-        <div class="step-number">1</div>
-        <div class="step-content">
-            <strong>Загрузка файлов через форму</strong>
-            <p>На странице генерации:</p>
-            <ol>
-                <li>Выберите файл шаблона (.docx)</li>
-                <li>Выберите файл с данными (.xlsx или .xls)</li>
-                <li>Нажмите кнопку "Сгенерировать протоколы"</li>
-            </ol>
-        </div>
-    </div>
-
-    <div class="process-step">
-        <div class="step-number">2</div>
-        <div class="step-content">
-            <strong>Обработка файлов системой</strong>
-            <p>Система выполняет следующие действия:</p>
-            <ul>
-                <li>Проверяет наличие всех обязательных столбцов в Excel-файле</li>
-                <li>Читает данные из каждой строки Excel-файла</li>
-                <li>Для каждой строки создает отдельный протокол, подставляя данные в шаблон</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="process-step">
-        <div class="step-number">3</div>
-        <div class="step-content">
-            <strong>Формирование результата</strong>
-            <p>После обработки всех строк:</p>
-            <ul>
-                <li>Все сгенерированные протоколы упаковываются в ZIP-архив</li>
-                <li>Архив автоматически загружается на ваш компьютер</li>
-                <li>Имена файлов в архиве: <code>Протокол_[Образец].docx</code></li>
-            </ul>
-        </div>
-    </div>
-
-    <h2>3. Пример использования</h2>
-
-    <div class="note">
-        <strong>Пример Excel-файла:</strong>
-        <table>
-            <thead>
-                <tr>
-                    <th>Образец</th>
-                    <th>Ширина</th>
-                    <th>Длина</th>
-                    <th>Высота</th>
-                    <th>Масса</th>
-                    <th>Номер протокола</th>
-                    <th>Дата</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>sample_1</td>
-                    <td>10.2</td>
-                    <td>15.5</td>
-                    <td>5.1</td>
-                    <td>25.4</td>
-                    <td>2023-001</td>
-                    <td>01.01.2023</td>
-                </tr>
-                <tr>
-                    <td>sample_2</td>
-                    <td>9.8</td>
-                    <td>14.9</td>
-                    <td>4.9</td>
-                    <td>24.1</td>
-                    <td>2023-002</td>
-                    <td>02.01.2023</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="note">
-        <strong>Результат:</strong>
-        <p>Будет создан ZIP-архив, содержащий два файла:</p>
-        <ul>
-            <li><code>Протокол_sample_1.docx</code></li>
-            <li><code>Протокол_sample_2.docx</code></li>
-        </ul>
-    </div>
-
-    <h2>4. Ограничения и рекомендации</h2>
-
-    <div class="requirement">
-        <ul>
-            <li>Максимальное количество строк в Excel-файле: 100</li>
-            <li>Размер шаблона DOCX не должен превышать 5 МБ</li>
-            <li>Для специальных форматов дат используйте предварительное форматирование в Excel</li>
-            <li>Избегайте специальных символов в именах образцов</li>
-        </ul>
-    </div>
+    <h3>Квадратная пластина:</h3>
+    <ul>
+        <li>Ширина и длина равны</li>
+        <li>Подходит для квадратных образцов</li>
+        <li>Упрощенные расчеты за счет симметрии</li>
+    </ul>
+</div>
 {% endblock %}
