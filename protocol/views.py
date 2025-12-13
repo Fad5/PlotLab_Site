@@ -94,12 +94,10 @@ class UploadView(FormView):
                     task.result_file.save('report.docx', f)
                 
                 task.status = 'completed'
-                    
-                
-            
         finally:
             task.save()
             print(f"Статус задачи обновлен: {task.status}")
+
 
 class ResultsView(DetailView):
     model = AnalysisTask
@@ -683,6 +681,8 @@ class VibrationAnalysisView(View):
             # Получаем файлы из формы
             excel_file = request.FILES.get('excel_file')
             archive_file = request.FILES.get('archive_file')
+            limit_HZ = int(request.POST.get('limit_HZ'))
+
             
             if not excel_file or not archive_file:
                 return render(request, 'protocol/pputestus_all.html', {
@@ -737,7 +737,7 @@ class VibrationAnalysisView(View):
                     loads = mass_columns
                     heights = [item['value'] for item in data['masses'].values()]
                     
-                    images, datas, results = vibraTableOne(sample_id, list_files, a, b, h, heights, loads)
+                    images, datas, results = vibraTableOne(sample_id, list_files, a, b, h, heights, loads, limits=(0, limit_HZ))
                     
                     samples_data[sample_id]['images'] = images
                     samples_data[sample_id]['datas'] = datas
@@ -801,9 +801,9 @@ class VibrationAnalysisView(View):
         """
         Сохраняет графики для каждого образца
         """
-        graphs_dir = os.path.join(output_dir, "Графики")
+        graphs_dir = os.path.join(output_dir, "Данные")
         os.makedirs(graphs_dir, exist_ok=True)
-        
+        self.graphs_dir = graphs_dir
         saved_graphs = []
         
         for sample_id, data in samples_data.items():
@@ -833,42 +833,12 @@ class VibrationAnalysisView(View):
         """
         Сохраняет Excel файлы с данными для каждого образца
         """
-        excel_dir = os.path.join(output_dir, "Excel_данные")
+        excel_dir = os.path.join(output_dir, self.graphs_dir)
         os.makedirs(excel_dir, exist_ok=True)
         
         saved_excel_files = []
         
-        # 1. Сводная таблица всех результатов
-        summary_data = []
-        
-        for sample_id, data in samples_data.items():
-            if 'results' not in data:
-                continue
-            
-            for mass_str, values in data['results'].items():
-                try:
-                    pressure, Fpeak, Ed, damp = values
-                    summary_data.append({
-                        'Образец': sample_id,
-                        'Масса пригруза (кг)': float(mass_str),
-                        'Удельное давление (кПа)': float(pressure),
-                        'Резонансная частота (Гц)': float(Fpeak),
-                        'Динамический модуль упругости (Н/мм²)': float(Ed),
-                        'Коэффициент потерь': float(damp)
-                    })
-                except (ValueError, TypeError) as e:
-                    print(f"Ошибка при обработке результатов для образца {sample_id}, масса {mass_str}: {e}")
-        
-        if summary_data:
-            try:
-                df_summary = pd.DataFrame(summary_data)
-                summary_path = os.path.join(excel_dir, "Сводные_результаты.xlsx")
-                df_summary.to_excel(summary_path, index=False)
-                saved_excel_files.append(summary_path)
-                print(f"✓ Создан сводный файл: {summary_path}")
-            except Exception as e:
-                print(f"Ошибка при создании сводного файла: {e}")
-        
+    
         # 2. Excel файлы для каждого образца (графики)
         for sample_id, data in samples_data.items():
             if 'datas' not in data:
@@ -876,7 +846,7 @@ class VibrationAnalysisView(View):
             
             try:
                 # Создаем Excel файл для данного образца
-                excel_path = os.path.join(excel_dir, f"Данные_образец_{sample_id}.xlsx")
+                excel_path = os.path.join(excel_dir, f"Образец_{sample_id}" ,f"Данные_образец_{sample_id}.xlsx")
                 workbook = xlsxwriter.Workbook(excel_path)
                 
                 # Для каждой массы создаем отдельный лист
@@ -925,67 +895,6 @@ class VibrationAnalysisView(View):
                 
             except Exception as e:
                 print(f"Ошибка при создании Excel файла для образца {sample_id}: {e}")
-        
-        # 3. Файл со средними значениями
-        try:
-            all_masses = set()
-            for sample_id, data in samples_data.items():
-                if 'results' in data:
-                    all_masses.update([float(mass) for mass in data['results'].keys()])
-            
-            all_masses = sorted(all_masses)
-            
-            if all_masses:
-                avg_data = []
-                
-                for mass in all_masses:
-                    mass_str = str(mass)
-                    
-                    pressures = []
-                    frequencies = []
-                    ed_values = []
-                    damping_values = []
-                    
-                    for sample_id, data in samples_data.items():
-                        if 'results' in data and mass_str in data['results']:
-                            try:
-                                pressure, Fpeak, Ed, damp = data['results'][mass_str]
-                                pressures.append(float(pressure))
-                                frequencies.append(float(Fpeak))
-                                ed_values.append(float(Ed))
-                                damping_values.append(float(damp))
-                            except (ValueError, TypeError):
-                                continue
-                    
-                    if pressures and frequencies and ed_values and damping_values:
-                        import numpy as np
-                        avg_pressure = np.mean(pressures)
-                        avg_frequency = np.mean(frequencies)
-                        avg_ed = np.mean(ed_values)
-                        avg_damping = np.mean(damping_values)
-                        
-                        cv_frequency = (np.std(frequencies) / avg_frequency * 100) if avg_frequency != 0 else 0
-                        cv_ed = (np.std(ed_values) / avg_ed * 100) if avg_ed != 0 else 0
-                        
-                        avg_data.append({
-                            'Масса пригруза (кг)': mass,
-                            'Среднее удельное давление (кПа)': avg_pressure,
-                            'Средняя резонансная частота (Гц)': avg_frequency,
-                            'Средний динамический модуль (Н/мм²)': avg_ed,
-                            'Средний коэффициент потерь': avg_damping,
-                            'Коэф. вариации частоты (%)': cv_frequency,
-                            'Коэф. вариации модуля (%)': cv_ed
-                        })
-                
-                if avg_data:
-                    df_avg = pd.DataFrame(avg_data)
-                    avg_path = os.path.join(excel_dir, "Средние_значения.xlsx")
-                    df_avg.to_excel(avg_path, index=False)
-                    saved_excel_files.append(avg_path)
-                    print(f"✓ Создан файл средних значений: {avg_path}")
-                    
-        except Exception as e:
-            print(f"Ошибка при создании файла средних значений: {e}")
         
         return saved_excel_files
     

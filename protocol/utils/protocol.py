@@ -286,7 +286,6 @@ def find_loading_cycles(df):
 
 def process_sample_file(filepath, sample_name, width, length, height, mass):
     """Обрабатывает данные одного образца и создает графики"""
-    load_600 = True
 
     df = load_data(filepath)
     if df is None:
@@ -329,9 +328,11 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
         'unload_time': unload_time,
         'unload_force': unload_force,
         'last_peak_force': last_peak_force,
-        'time_load': time_load
+        'time_load': time_load,
+        'E1':E1,
+        'Eps1':Eps1,
+        'Pr': Pr
     }
-
 
 def insert_load_table(doc, samples_data, decimal_places=3):
     """Создает таблицу с нагрузками при разных деформациях"""
