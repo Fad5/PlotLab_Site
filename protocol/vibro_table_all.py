@@ -5,22 +5,15 @@ import zipfile
 import rarfile
 import tempfile
 import os
-import shutil
-from pprint import pprint
 import io
 from docx import Document
 from docx.shared import Inches
 from docx.shared import Pt
-
 import matplotlib.pyplot as plt
 import shutil
-
 import numpy as np
-from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-
 from matplotlib import rcParams
-
 
 plt.style.use('seaborn-v0_8-whitegrid')
 rcParams['figure.facecolor'] = 'white'
@@ -996,7 +989,6 @@ def example_usage():
         samples_data[sample_id]['results'] = results
 
     create_full_report(samples_data, 'Красный/Красный.docx')
-
 
 if __name__ == "__main__":
     example_usage()

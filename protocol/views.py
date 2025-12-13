@@ -1,85 +1,96 @@
-import os
-import zipfile
-import tempfile
 from django.shortcuts import render, redirect
 from django.views.generic import FormView, DetailView
 from django.urls import reverse_lazy
-from django.http import FileResponse
 from django.contrib import messages
-from .forms import AnalysisForm
-from .models import AnalysisTask
+from .forms import SimpleUploadForm
 from .utils.protocol import genaretion_plot, generate_individual_protocols
 from .utils.help_fun import reformat_date, dolg, generate_random_float, str_to_float, float_to_str
-import pandas as pd
-from django.shortcuts import render
-from django.http import HttpResponse
-import pandas as pd
 from docxtpl import DocxTemplate
-import os
 from io import BytesIO
 from django.core.files.uploadedfile import UploadedFile
 from django.conf import settings
+import shutil
+import os
+import tempfile
+import zipfile
+import xlsxwriter
+from django.http import HttpResponse, FileResponse
+from django.views import View
+from .vibro_table_all import process_excel_file, extract_archive, get_archive_files_list, get_file, vibraTableOne, create_full_report
+import matplotlib.pyplot as plt
+import pandas as pd
 
-class UploadView(FormView):
+class UploadView(View):
     template_name = 'protocol/upload.html'
-    form_class = AnalysisForm
-    success_url = reverse_lazy('analysis_list')
     
-    def form_valid(self, form):
-        task = form.save()
-        self.process_task(task)
-        messages.success(self.request, 'Файлы загружены. Идет обработка...')
-        return redirect('analysis_results', pk=task.id)
+    def get(self, request):
+        form = SimpleUploadForm()
+        return render(request, self.template_name, {'form': form})
     
-    def process_task(self, task):
+    def post(self, request):
+        form = SimpleUploadForm(request.POST, request.FILES)
+        
+        if not form.is_valid():
+            return render(request, self.template_name, {'form': form})
+        
         try:
-            task.status = 'processing'
-            task.save()
+            # Получаем файлы из формы
+            excel_file = request.FILES.get('excel_file')
+            data_archive = request.FILES.get('data_archive')
             
-            # Создаем временные файлы
+            if not excel_file or not data_archive:
+                messages.error(request, 'Пожалуйста, загрузите оба файла')
+                return render(request, self.template_name, {'form': form})
+            
+            # Создаем временную директорию
             with tempfile.TemporaryDirectory() as temp_dir:
                 # 1. Обработка архива с данными
                 data_files = []
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_archive:
+                    for chunk in data_archive.chunks():
+                        tmp_archive.write(chunk)
+                    archive_path = tmp_archive.name
+                
                 try:
-                    with zipfile.ZipFile(task.data_archive.path, 'r') as zip_ref:
+                    with zipfile.ZipFile(archive_path, 'r') as zip_ref:
                         zip_ref.extractall(temp_dir)
                         data_files = [
                             os.path.join(temp_dir, f) 
                             for f in zip_ref.namelist() 
-                            if f.endswith('.txt')
+                            if f.endswith('.txt') or f.endswith('.csv')
                         ]
-                        
+                    
                     if not data_files:
-                        raise ValueError("В архиве не найдены файлы .txt")
+                        raise ValueError("В архиве не найдены файлы данных (.txt или .csv)")
                         
-                except Exception as e:
-                    task.status = 'failed'
-                    task.save()
-                    print(f"Ошибка обработки архива: {str(e)}")
-                    return
-
+                finally:
+                    os.unlink(archive_path)
+                
                 # 2. Обработка Excel файла
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_excel:
+                    for chunk in excel_file.chunks():
+                        tmp_excel.write(chunk)
+                    excel_path = tmp_excel.name
+                
                 try:
-                    excel_data = pd.read_excel(task.excel_file.path)
+                    excel_data = pd.read_excel(excel_path)
                     required_columns = ['Образец', 'Ширина', 'Длина', 'Высота', 'Масса']
                     
                     if not all(col in excel_data.columns for col in required_columns):
                         missing = [col for col in required_columns if col not in excel_data.columns]
                         raise ValueError(f"В Excel файле отсутствуют обязательные колонки: {missing}")
                         
-                except Exception as e:
-                    task.status = 'failed'
-                    task.save()
-                    print(f"Ошибка чтения Excel файла: {str(e)}")
-                    return
-
-                # 3. Генерация отчета
-
-                output_path = os.path.join(temp_dir, 'report.docx')
+                finally:
+                    os.unlink(excel_path)
                 
-                # Добавим логирование перед вызовом genaretion_plot
+                # 3. Генерация отчета
                 print(f"Начало генерации отчета. Файлов данных: {len(data_files)}")
                 
+                # Создаем путь для отчета
+                output_path = os.path.join(tempfile.gettempdir(), 'vibration_report.docx')
+                
+                # Генерируем отчет
                 success = genaretion_plot(
                     data_files, 
                     excel_data, 
@@ -89,34 +100,26 @@ class UploadView(FormView):
                 if not success:
                     raise ValueError("Не удалось сгенерировать отчет")
                 
-                # Сохраняем результат
-                with open(output_path, 'rb') as f:
-                    task.result_file.save('report.docx', f)
+                # Отправляем файл пользователю
+                response = FileResponse(
+                    open(output_path, 'rb'),
+                    as_attachment=True,
+                    filename='vibration_analysis_report.docx'
+                )
                 
-                task.status = 'completed'
-        finally:
-            task.save()
-            print(f"Статус задачи обновлен: {task.status}")
-
-
-class ResultsView(DetailView):
-    model = AnalysisTask
-    template_name = 'protocol/results.html'
-    context_object_name = 'task'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['ready'] = self.object.status == 'completed'
-        return context
-
-def download_report(request, pk):
-    task = AnalysisTask.objects.get(pk=pk)
-    if task.result_file:
-        response = FileResponse(task.result_file.open('rb'))
-        response['Content-Disposition'] = f'attachment; filename="elastic_modulus_report.docx"'
-        return response
-    return redirect('analysis_results', pk=pk)
-
+                # Удаляем временный файл отчета после отправки
+                response['Content-Disposition'] = 'attachment; filename="vibration_analysis_report.docx"'
+                
+                # В production лучше использовать Django's HttpResponse с auto-cleaning
+                # или celery task для очистки файлов позже
+                import atexit
+                atexit.register(lambda: os.unlink(output_path) if os.path.exists(output_path) else None)
+                
+                return response
+                
+        except Exception as e:
+            messages.error(request, f'Ошибка обработки: {str(e)}')
+            return render(request, self.template_name, {'form': form})
 
 def protocol(request):
     return render(request, 'protocol/protocol.html')
@@ -659,18 +662,7 @@ def download_rar_vibrotable_all(request):
     """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'Exemple_vibrotable_all.zip')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
-import shutil
-import os
-import tempfile
-import zipfile
-import xlsxwriter
-import io
-from django.shortcuts import render
-from django.http import HttpResponse, FileResponse
-from django.views import View
-from .vibro_table_all import process_excel_file, extract_archive, get_archive_files_list, get_file, vibraTableOne, create_full_report
-import matplotlib.pyplot as plt
-import pandas as pd
+
 
 class VibrationAnalysisView(View):
     def get(self, request):

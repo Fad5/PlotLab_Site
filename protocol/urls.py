@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import (UploadView, ResultsView, download_rar_press_union,download_excel_press_union,
-                    download_report, protocol, Press_Protocols_Stubs, download_template, 
+from .views import (UploadView, download_rar_press_union,download_excel_press_union,
+                    protocol, Press_Protocols_Stubs, download_template, 
                     download_excel_press, generate_and_download_protocols, OD_generate, OD_elone,
                     download_excel_OD_elone, download_template_OD_elone, VibrationAnalysisView,
                     download_excel_vibrotable_all,download_rar_vibrotable_all)
@@ -8,8 +8,6 @@ from .views import (UploadView, ResultsView, download_rar_press_union,download_e
 urlpatterns = [
     path('', protocol, name='protocol'),
     path('upload/', UploadView.as_view(), name='upload'),
-    path('upload/results/<uuid:pk>/', ResultsView.as_view(), name='analysis_results'),
-    path('upload/download/<uuid:pk>/', download_report, name='download_report'),
     path('upload//Press_Protocols_Stubs', Press_Protocols_Stubs, name='Press_Protocols_Stubs'),
     path('download-template/', download_template, name='download_template'), #Путь для скачивания word файла как шаблон (для одиночного протокола ПРЕСС)
     path('download-template-excel-press/', download_excel_press, name='download_excel_press'), #Путь для скачивания excel файла как шаблон (для одиночного протокола ПРЕСС)
