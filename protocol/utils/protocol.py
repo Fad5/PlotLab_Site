@@ -217,8 +217,8 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
         
         # Визуализация
 
-        # ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
-        # ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
+        ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
+        ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
     
 
         # Легенда

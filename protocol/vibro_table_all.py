@@ -7,20 +7,18 @@ import tempfile
 import os
 import shutil
 from pprint import pprint
-from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 from docx import Document
 from docx.shared import Inches
 from docx.shared import Pt
 
 import matplotlib.pyplot as plt
+import shutil
 
-
-import matplotlib.pyplot as plt
 import numpy as np
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import io
+
 from matplotlib import rcParams
 
 
@@ -881,15 +879,6 @@ def process_excel_file(excel_file):
 
     except Exception as e:
         print(f"Ошибка при обработке Excel файла: {e}")
-
-
-import zipfile
-import rarfile
-import re
-import zipfile
-import tempfile
-import os
-import shutil
 
 def extract_archive_to_temp(archive_path, extract_to=None):
     """

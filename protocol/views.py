@@ -661,16 +661,18 @@ def download_rar_vibrotable_all(request):
     """
     file_path = os.path.join(settings.BASE_DIR, 'templates_doc', 'Exemple_vibrotable_all.zip')
     return FileResponse(open(file_path, 'rb'), as_attachment=True)
-
 import shutil
 import os
 import tempfile
+import zipfile
+import xlsxwriter
+import io
 from django.shortcuts import render
 from django.http import HttpResponse, FileResponse
 from django.views import View
-from django.core.files.storage import FileSystemStorage
-import pandas as pd
 from .vibro_table_all import process_excel_file, extract_archive, get_archive_files_list, get_file, vibraTableOne, create_full_report
+import matplotlib.pyplot as plt
+import pandas as pd
 
 class VibrationAnalysisView(View):
     def get(self, request):
@@ -699,6 +701,10 @@ class VibrationAnalysisView(View):
                 archive_path = tmp_archive.name
             
             try:
+                # Создаем временную папку для всех файлов
+                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+                temp_dir = tempfile.mkdtemp(prefix=f'vibration_report_{timestamp}_')
+                
                 # Обрабатываем Excel файл
                 samples_data, mass_columns = process_excel_file(excel_path)
                 
@@ -737,20 +743,41 @@ class VibrationAnalysisView(View):
                     samples_data[sample_id]['datas'] = datas
                     samples_data[sample_id]['results'] = results
                 
-                # Создаем отчет
-                output_filename = 'vibration_analysis_report.docx'
-                output_path = os.path.join(tempfile.gettempdir(), output_filename)
-                create_full_report(samples_data, output_path)
+                # 1. СОЗДАЕМ ПРОТОКОЛ В WORD
+                docx_filename = 'vibration_analysis_report.docx'
+                docx_path = os.path.join(temp_dir, docx_filename)
+                create_full_report(samples_data, docx_path)
                 
-                # Отправляем файл пользователю
+                # 2. СОХРАНЯЕМ ГРАФИКИ
+                saved_graphs = self.save_sample_graphs(samples_data, temp_dir)
+                print(f"✓ Сохранено {len(saved_graphs)} графиков")
+                
+                # 3. СОЗДАЕМ EXCEL ФАЙЛЫ
+                saved_excel_files = self.save_sample_excel(samples_data, temp_dir)
+                print(f"✓ Создано {len(saved_excel_files)} Excel файлов")
+                
+                # 4. СОЗДАЕМ ZIP АРХИВ
+                zip_filename = f'vibration_analysis_report_{timestamp}.zip'
+                zip_path = os.path.join(tempfile.gettempdir(), zip_filename)
+                
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    # Добавляем все файлы из временной папки
+                    for root, dirs, files in os.walk(temp_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            # Относительный путь внутри архива
+                            arcname = os.path.relpath(file_path, temp_dir)
+                            zipf.write(file_path, arcname)
+                
+                # Отправляем ZIP архив пользователю
                 response = FileResponse(
-                    open(output_path, 'rb'),
+                    open(zip_path, 'rb'),
                     as_attachment=True,
-                    filename=output_filename
+                    filename=zip_filename
                 )
                 
-                # Очистка временных файлов (можно сделать через celery или background task)
-                self.cleanup_temp_files([excel_path, archive_path, output_path])
+                # Очистка временных файлов
+                self.cleanup_temp_files([excel_path, archive_path, zip_path, temp_dir])
                 if os.path.exists(temp_path):
                     shutil.rmtree(temp_path, ignore_errors=True)
                 
@@ -759,6 +786,8 @@ class VibrationAnalysisView(View):
             except Exception as e:
                 # Очистка в случае ошибки
                 self.cleanup_temp_files([excel_path, archive_path])
+                if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
                 return render(request, 'protocol/pputestus_all.html', {
                     'error': f'Ошибка обработки: {str(e)}'
                 })
@@ -768,14 +797,206 @@ class VibrationAnalysisView(View):
                 'error': f'Ошибка: {str(e)}'
             })
     
+    def save_sample_graphs(self, samples_data, output_dir):
+        """
+        Сохраняет графики для каждого образца
+        """
+        graphs_dir = os.path.join(output_dir, "Графики")
+        os.makedirs(graphs_dir, exist_ok=True)
+        
+        saved_graphs = []
+        
+        for sample_id, data in samples_data.items():
+            if 'images' not in data:
+                continue
+            
+            # Создаем папку для данного образца
+            sample_dir = os.path.join(graphs_dir, f"Образец_{sample_id}")
+            os.makedirs(sample_dir, exist_ok=True)
+            
+            for image_name, fig in data['images'].items():
+                try:
+                    # Сохраняем график
+                    graph_path = os.path.join(sample_dir, f"{image_name}.png")
+                    fig.savefig(graph_path, dpi=300, bbox_inches='tight')
+                    saved_graphs.append(graph_path)
+                    
+                    # Закрываем figure чтобы освободить память
+                    plt.close(fig)
+                    
+                except Exception as e:
+                    print(f"Ошибка при сохранении графика {image_name}: {e}")
+        
+        return saved_graphs
+    
+    def save_sample_excel(self, samples_data, output_dir):
+        """
+        Сохраняет Excel файлы с данными для каждого образца
+        """
+        excel_dir = os.path.join(output_dir, "Excel_данные")
+        os.makedirs(excel_dir, exist_ok=True)
+        
+        saved_excel_files = []
+        
+        # 1. Сводная таблица всех результатов
+        summary_data = []
+        
+        for sample_id, data in samples_data.items():
+            if 'results' not in data:
+                continue
+            
+            for mass_str, values in data['results'].items():
+                try:
+                    pressure, Fpeak, Ed, damp = values
+                    summary_data.append({
+                        'Образец': sample_id,
+                        'Масса пригруза (кг)': float(mass_str),
+                        'Удельное давление (кПа)': float(pressure),
+                        'Резонансная частота (Гц)': float(Fpeak),
+                        'Динамический модуль упругости (Н/мм²)': float(Ed),
+                        'Коэффициент потерь': float(damp)
+                    })
+                except (ValueError, TypeError) as e:
+                    print(f"Ошибка при обработке результатов для образца {sample_id}, масса {mass_str}: {e}")
+        
+        if summary_data:
+            try:
+                df_summary = pd.DataFrame(summary_data)
+                summary_path = os.path.join(excel_dir, "Сводные_результаты.xlsx")
+                df_summary.to_excel(summary_path, index=False)
+                saved_excel_files.append(summary_path)
+                print(f"✓ Создан сводный файл: {summary_path}")
+            except Exception as e:
+                print(f"Ошибка при создании сводного файла: {e}")
+        
+        # 2. Excel файлы для каждого образца (графики)
+        for sample_id, data in samples_data.items():
+            if 'datas' not in data:
+                continue
+            
+            try:
+                # Создаем Excel файл для данного образца
+                excel_path = os.path.join(excel_dir, f"Данные_образец_{sample_id}.xlsx")
+                workbook = xlsxwriter.Workbook(excel_path)
+                
+                # Для каждой массы создаем отдельный лист
+                for mass_str, graph_data in data['datas'].items():
+                    try:
+                        if len(graph_data) >= 3:
+                            freq, tf_module, isolation_eff = graph_data[:3]
+                            
+                            # Создаем лист с именем массы
+                            sheet_name = f"Масса_{mass_str}кг"
+                            worksheet = workbook.add_worksheet(sheet_name)
+                            
+                            # Заголовки
+                            headers = ['Частота, Гц', 'Передаточная функция', 'Эффективность, дБ']
+                            for col, header in enumerate(headers):
+                                worksheet.write(0, col, header)
+                            
+                            # Данные
+                            for row in range(min(len(freq), len(tf_module), len(isolation_eff))):
+                                worksheet.write(row + 1, 0, float(freq[row]))
+                                worksheet.write(row + 1, 1, float(tf_module[row]))
+                                worksheet.write(row + 1, 2, float(isolation_eff[row]))
+                            
+                            # Если есть результаты для этой массы
+                            if 'results' in data and mass_str in data['results']:
+                                pressure, Fpeak, Ed, damp = data['results'][mass_str]
+                                start_row = len(freq) + 3
+                                
+                                worksheet.write(start_row, 0, 'Результаты:')
+                                worksheet.write(start_row + 1, 0, 'Удельное давление, кПа')
+                                worksheet.write(start_row + 1, 1, float(pressure))
+                                worksheet.write(start_row + 2, 0, 'Резонансная частота, Гц')
+                                worksheet.write(start_row + 2, 1, float(Fpeak))
+                                worksheet.write(start_row + 3, 0, 'Динамический модуль упругости, Н/мм²')
+                                worksheet.write(start_row + 3, 1, float(Ed))
+                                worksheet.write(start_row + 4, 0, 'Коэффициент потерь')
+                                worksheet.write(start_row + 4, 1, float(damp))
+                                
+                    except (ValueError, TypeError, IndexError) as e:
+                        print(f"Ошибка при обработке данных для образца {sample_id}, масса {mass_str}: {e}")
+                        continue
+                
+                workbook.close()
+                saved_excel_files.append(excel_path)
+                print(f"✓ Создан Excel файл: {excel_path}")
+                
+            except Exception as e:
+                print(f"Ошибка при создании Excel файла для образца {sample_id}: {e}")
+        
+        # 3. Файл со средними значениями
+        try:
+            all_masses = set()
+            for sample_id, data in samples_data.items():
+                if 'results' in data:
+                    all_masses.update([float(mass) for mass in data['results'].keys()])
+            
+            all_masses = sorted(all_masses)
+            
+            if all_masses:
+                avg_data = []
+                
+                for mass in all_masses:
+                    mass_str = str(mass)
+                    
+                    pressures = []
+                    frequencies = []
+                    ed_values = []
+                    damping_values = []
+                    
+                    for sample_id, data in samples_data.items():
+                        if 'results' in data and mass_str in data['results']:
+                            try:
+                                pressure, Fpeak, Ed, damp = data['results'][mass_str]
+                                pressures.append(float(pressure))
+                                frequencies.append(float(Fpeak))
+                                ed_values.append(float(Ed))
+                                damping_values.append(float(damp))
+                            except (ValueError, TypeError):
+                                continue
+                    
+                    if pressures and frequencies and ed_values and damping_values:
+                        import numpy as np
+                        avg_pressure = np.mean(pressures)
+                        avg_frequency = np.mean(frequencies)
+                        avg_ed = np.mean(ed_values)
+                        avg_damping = np.mean(damping_values)
+                        
+                        cv_frequency = (np.std(frequencies) / avg_frequency * 100) if avg_frequency != 0 else 0
+                        cv_ed = (np.std(ed_values) / avg_ed * 100) if avg_ed != 0 else 0
+                        
+                        avg_data.append({
+                            'Масса пригруза (кг)': mass,
+                            'Среднее удельное давление (кПа)': avg_pressure,
+                            'Средняя резонансная частота (Гц)': avg_frequency,
+                            'Средний динамический модуль (Н/мм²)': avg_ed,
+                            'Средний коэффициент потерь': avg_damping,
+                            'Коэф. вариации частоты (%)': cv_frequency,
+                            'Коэф. вариации модуля (%)': cv_ed
+                        })
+                
+                if avg_data:
+                    df_avg = pd.DataFrame(avg_data)
+                    avg_path = os.path.join(excel_dir, "Средние_значения.xlsx")
+                    df_avg.to_excel(avg_path, index=False)
+                    saved_excel_files.append(avg_path)
+                    print(f"✓ Создан файл средних значений: {avg_path}")
+                    
+        except Exception as e:
+            print(f"Ошибка при создании файла средних значений: {e}")
+        
+        return saved_excel_files
+    
     def cleanup_temp_files(self, file_paths):
         """Очистка временных файлов"""
-
         for path in file_paths:
             try:
-                if os.path.isfile(path):
-                    os.unlink(path)
-                elif os.path.isdir(path):
-                    shutil.rmtree(path, ignore_errors=True)
+                if path and os.path.exists(path):
+                    if os.path.isfile(path):
+                        os.unlink(path)
+                    elif os.path.isdir(path):
+                        shutil.rmtree(path, ignore_errors=True)
             except:
                 pass
