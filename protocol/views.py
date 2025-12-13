@@ -838,7 +838,6 @@ class VibrationAnalysisView(View):
         
         saved_excel_files = []
         
-    
         # 2. Excel файлы для каждого образца (графики)
         for sample_id, data in samples_data.items():
             if 'datas' not in data:
@@ -846,7 +845,8 @@ class VibrationAnalysisView(View):
             
             try:
                 # Создаем Excel файл для данного образца
-                excel_path = os.path.join(excel_dir, f"Образец_{sample_id}" ,f"Данные_образец_{sample_id}.xlsx")
+                excel_path = os.path.join(excel_dir, f"Образец_{sample_id}", f"Данные_образец_{sample_id}.xlsx")
+                os.makedirs(os.path.dirname(excel_path), exist_ok=True)
                 workbook = xlsxwriter.Workbook(excel_path)
                 
                 # Для каждой массы создаем отдельный лист
@@ -870,20 +870,22 @@ class VibrationAnalysisView(View):
                                 worksheet.write(row + 1, 1, float(tf_module[row]))
                                 worksheet.write(row + 1, 2, float(isolation_eff[row]))
                             
-                            # Если есть результаты для этой массы
+                            # Если есть результаты для этой массы - размещаем справа
                             if 'results' in data and mass_str in data['results']:
                                 pressure, Fpeak, Ed, damp = data['results'][mass_str]
-                                start_row = len(freq) + 3
                                 
-                                worksheet.write(start_row, 0, 'Результаты:')
-                                worksheet.write(start_row + 1, 0, 'Удельное давление, кПа')
-                                worksheet.write(start_row + 1, 1, float(pressure))
-                                worksheet.write(start_row + 2, 0, 'Резонансная частота, Гц')
-                                worksheet.write(start_row + 2, 1, float(Fpeak))
-                                worksheet.write(start_row + 3, 0, 'Динамический модуль упругости, Н/мм²')
-                                worksheet.write(start_row + 3, 1, float(Ed))
-                                worksheet.write(start_row + 4, 0, 'Коэффициент потерь')
-                                worksheet.write(start_row + 4, 1, float(damp))
+                                # Определяем начальную позицию для результатов (справа от таблицы)
+                                results_col_start = 5  # Начинаем с колонки E (индекс 4) для отступа
+                                
+                                worksheet.write(0, results_col_start, 'Результаты испытаний:')
+                                worksheet.write(1, results_col_start, 'Удельное давление, кПа')
+                                worksheet.write(1, results_col_start + 1, float(pressure))
+                                worksheet.write(2, results_col_start, 'Резонансная частота, Гц')
+                                worksheet.write(2, results_col_start + 1, float(Fpeak))
+                                worksheet.write(3, results_col_start, 'Динамический модуль упругости, Н/мм²')
+                                worksheet.write(3, results_col_start + 1, float(Ed))
+                                worksheet.write(4, results_col_start, 'Коэффициент потерь')
+                                worksheet.write(4, results_col_start + 1, float(damp))
                                 
                     except (ValueError, TypeError, IndexError) as e:
                         print(f"Ошибка при обработке данных для образца {sample_id}, масса {mass_str}: {e}")
@@ -895,7 +897,7 @@ class VibrationAnalysisView(View):
                 
             except Exception as e:
                 print(f"Ошибка при создании Excel файла для образца {sample_id}: {e}")
-        
+
         return saved_excel_files
     
     def cleanup_temp_files(self, file_paths):

@@ -445,7 +445,7 @@ def create_full_report(samples_data, output_file='Оранжевый.docx'):
         
         doc.add_paragraph()  # Добавляем отступ между таблицами
     
-    # 3. Таблица средних значений с коэффициентом вариации
+        # 3. Таблица средних значений с коэффициентом вариации
     doc.add_page_break()
     heading = doc.add_heading('Средние значения характеристик по всем образцам', level=1)
     apply_times_new_roman_12_black(heading)
@@ -453,10 +453,11 @@ def create_full_report(samples_data, output_file='Оранжевый.docx'):
     # Определяем, для каких характеристик нужен коэффициент вариации
     characteristics_with_cv = [
         "Динамический модуль упругости, Н/мм²",
-        "Коэффициент потерь"
+        "Коэффициент потерь",
+        "Частота резонанса, Гц"  # Добавлено: коэффициент вариации для частоты резонанса
     ]
     
-    # Количество строк: 4 основные характеристики + 2 строки для коэффициентов вариации
+    # Количество строк: 4 основные характеристики + строки для коэффициентов вариации
     total_rows = 4 + len(characteristics_with_cv)
     table_avg = doc.add_table(rows=total_rows, cols=len(all_masses) + 1)
     table_avg.style = 'Table Grid'
@@ -544,20 +545,32 @@ def create_full_report(samples_data, output_file='Оранжевый.docx'):
                 break
                 
             # Коэффициент вариации
-            table_avg.cell(current_row, 0).text = "Коэффициент вариации, %"
+            cv_label = "Коэффициент вариации, %"
+            if char_name == "Частота резонанса, Гц":
+                cv_label = "Коэффициент вариации (частота), %"
+            
+            table_avg.cell(current_row, 0).text = cv_label
             apply_times_new_roman_black_to_cell(table_avg.cell(current_row, 0))
             
             for col, mass in enumerate(all_masses, 1):
                 values = characteristics_data[char_name][mass]
                 if values and len(values) > 1:
                     cv = calculate_coefficient_of_variation(values)
-                    table_avg.cell(current_row, col).text = f"{cv:.2f}" if cv is not None else "Н/Д"
+                    if cv is not None:
+                        # Форматируем вывод в зависимости от характеристик
+                        if char_name == "Частота резонанса, Гц":
+                            table_avg.cell(current_row, col).text = f"{cv:.2f}"
+                        else:
+                            table_avg.cell(current_row, col).text = f"{cv:.2f}"
+                    else:
+                        table_avg.cell(current_row, col).text = "Н/Д"
                 else:
                     table_avg.cell(current_row, col).text = "Н/Д"
                 
                 apply_times_new_roman_black_to_cell(table_avg.cell(current_row, col))
         
         current_row += 1
+    
     
     # 4. График зависимости динамического модуля упругости от удельного давления (СРЕДНИЕ ЗНАЧЕНИЯ)
     doc.add_page_break()
