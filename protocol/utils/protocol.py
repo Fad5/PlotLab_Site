@@ -167,6 +167,7 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
     unload_force = None
     last_peak_force = None
     time_load = None
+    delta_force = None
     
     # Построение графика перемещения
     ax1.plot(Time, Disp, 'b', label='Смещение (мм)', linewidth=linewidth)
@@ -213,21 +214,18 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
         # Время релаксации 
         time_load = unload_time - last_peak_time
         
+        delta_force = last_peak_force - unload_force
         # Визуализация
         if time_load >= 500:
             ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
             ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
         
 
-        # Легенда
-        lines, labels = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax1_force.get_legend_handles_labels()
-
-
     print(name_sample)
     print(last_peak_force - unload_force)
     print(time_load)
     print('#' * 25)
+    print(delta_force, 'delta_force')
 
 
     plt.tight_layout()
@@ -238,9 +236,10 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
     return {
         'plot_path': plot_path,
         'unload_time': unload_time,
-        'unload_force': unload_force, # Нагрузка в конце релаксации 
+        'unload_force': unload_force, # Нагрузка в конце релаксации
         'last_peak_force': last_peak_force, # Нагрузка на последнем пике в начале релаксации 
-        'time_load': time_load # Время релаксации 
+        'time_load': time_load,
+        'delta_force': delta_force
     }
 
 
@@ -308,6 +307,7 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
     unload_force = plot_data['unload_force']
     last_peak_force = plot_data['last_peak_force']
     time_load = plot_data['time_load']
+    delta_force = plot_data['delta_force']
 
     E1, Eps1, Pr = data_modul_young(df, width, length, height)
     
@@ -334,6 +334,7 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
         'unload_force': unload_force,
         'last_peak_force': last_peak_force,
         'time_load': time_load,
+        'delta_force': delta_force,
         'E1':E1,
         'Eps1':Eps1,
         'Pr': Pr
@@ -796,32 +797,41 @@ def save_sample_data_to_excel(sample_data, output_dir):
         # Проверяем наличие данных релаксации по ключам из возвращаемой структуры
         if ('unload_time' in sample_data and sample_data['unload_time'] is not None and 
             'unload_force' in sample_data and sample_data['unload_force'] is not None):
+
+            # Проверка на то чтобы в таблицу попадали образцы с испытаниями на релаксацию
+            if sample_data['time_load'] >= 500:
             
-            relaxation_rows = []
-            
-            # Время релаксации (разгрузки)
-            if sample_data['unload_time'] is not None:
-                relaxation_rows.append({
-                    'Параметр': 'Время релаксации',
-                    'Значение': f"{sample_data['unload_time']:.2f} с"
-                })
-            
-            # Начальная нагрузка (последний пик)
-            if 'last_peak_force' in sample_data and sample_data['last_peak_force'] is not None:
-                relaxation_rows.append({
-                    'Параметр': 'Начальная нагрузка',
-                    'Значение': f"{sample_data['last_peak_force']:.2f} МПа"
-                })
-            
-            # Конечная нагрузка
-            if sample_data['unload_force'] is not None:
-                relaxation_rows.append({
-                    'Параметр': 'Конечная нагрузка',
-                    'Значение': f"{sample_data['unload_force']:.2f} МПа"
-                })
-            
-            if relaxation_rows:
-                df_relaxation = pd.DataFrame(relaxation_rows)
+                relaxation_rows = []
+                
+                # Время релаксации (разгрузки)
+                if sample_data['unload_time'] is not None:
+                    relaxation_rows.append({
+                        'Параметр': 'Время релаксации (t, с)',
+                        'Значение': f"{sample_data['time_load']:.2f} с"
+                    })
+                
+                # Начальная нагрузка (последний пик)
+                if 'last_peak_force' in sample_data and sample_data['last_peak_force'] is not None:
+                    relaxation_rows.append({
+                        'Параметр': 'Начальная нагрузка',
+                        'Значение': f"{sample_data['last_peak_force']:.2f} Н"
+                    })
+                
+                # Конечная нагрузка
+                if sample_data['unload_force'] is not None:
+                    relaxation_rows.append({
+                        'Параметр': 'Конечная нагрузка',
+                        'Значение': f"{sample_data['unload_force']:.2f} Н"
+                    })
+                # Конечная нагрузка
+                if sample_data['delta_force'] is not None:
+                    relaxation_rows.append({
+                        'Параметр': 'Изминение нагрузки (R, Н)',
+                        'Значение': f"{sample_data['delta_force']:.2f} Н"
+                    })
+                
+                if relaxation_rows:
+                    df_relaxation = pd.DataFrame(relaxation_rows)
         
         # Путь для сохранения (ВНЕ всех условий, всегда определяется)
         excel_path = os.path.join(output_dir, f"{sample_name}_data.xlsx")
