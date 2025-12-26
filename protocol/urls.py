@@ -7,7 +7,7 @@ from .views import (UploadView, download_rar_press_union,download_excel_press_un
 
 urlpatterns = [
     path('', protocol, name='protocol'),
-    path('upload/', UploadView.as_view(), name='upload'),
+    path('upload/', UploadView.as_view(), name='upload'), # Путь для отображения и открытия страницы с объедененым протоколом 
     path('upload//Press_Protocols_Stubs', Press_Protocols_Stubs, name='Press_Protocols_Stubs'),
     path('download-template/', download_template, name='download_template'), #Путь для скачивания word файла как шаблон (для одиночного протокола ПРЕСС)
     path('download-template-excel-press/', download_excel_press, name='download_excel_press'), #Путь для скачивания excel файла как шаблон (для одиночного протокола ПРЕСС)

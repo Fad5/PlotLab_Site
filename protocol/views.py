@@ -3,7 +3,7 @@ from django.views.generic import FormView, DetailView
 from django.urls import reverse_lazy
 from django.contrib import messages
 from .forms import SimpleUploadForm
-from .utils.protocol import genaretion_plot, generate_individual_protocols
+from .utils.protocol import genaretion_plot, generate_individual_protocols, genaretion_plot_with_saved_plots
 from .utils.help_fun import reformat_date, dolg, generate_random_float, str_to_float, float_to_str
 from docxtpl import DocxTemplate
 from io import BytesIO
@@ -33,94 +33,131 @@ class UploadView(View):
         if not form.is_valid():
             return render(request, self.template_name, {'form': form})
         
-        try:
-            # Получаем файлы из формы
-            excel_file = request.FILES.get('excel_file')
-            data_archive = request.FILES.get('data_archive')
-            
-            if not excel_file or not data_archive:
-                messages.error(request, 'Пожалуйста, загрузите оба файла')
-                return render(request, self.template_name, {'form': form})
-            
-            # Создаем временную директорию
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # 1. Обработка архива с данными
-                data_files = []
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_archive:
-                    for chunk in data_archive.chunks():
-                        tmp_archive.write(chunk)
-                    archive_path = tmp_archive.name
-                
-                try:
-                    with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                        zip_ref.extractall(temp_dir)
-                        data_files = [
-                            os.path.join(temp_dir, f) 
-                            for f in zip_ref.namelist() 
-                            if f.endswith('.txt') or f.endswith('.csv')
-                        ]
-                    
-                    if not data_files:
-                        raise ValueError("В архиве не найдены файлы данных (.txt или .csv)")
-                        
-                finally:
-                    os.unlink(archive_path)
-                
-                # 2. Обработка Excel файла
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_excel:
-                    for chunk in excel_file.chunks():
-                        tmp_excel.write(chunk)
-                    excel_path = tmp_excel.name
-                
-                try:
-                    excel_data = pd.read_excel(excel_path)
-                    required_columns = ['Образец', 'Ширина', 'Длина', 'Высота', 'Масса']
-                    
-                    if not all(col in excel_data.columns for col in required_columns):
-                        missing = [col for col in required_columns if col not in excel_data.columns]
-                        raise ValueError(f"В Excel файле отсутствуют обязательные колонки: {missing}")
-                        
-                finally:
-                    os.unlink(excel_path)
-                
-                # 3. Генерация отчета
-                print(f"Начало генерации отчета. Файлов данных: {len(data_files)}")
-                
-                # Создаем путь для отчета
-                output_path = os.path.join(tempfile.gettempdir(), 'vibration_report.docx')
-                
-                # Генерируем отчет
-                success = genaretion_plot(
-                    data_files, 
-                    excel_data, 
-                    output_filename=output_path
-                )
-                
-                if not success:
-                    raise ValueError("Не удалось сгенерировать отчет")
-                
-                # Отправляем файл пользователю
-                response = FileResponse(
-                    open(output_path, 'rb'),
-                    as_attachment=True,
-                    filename='vibration_analysis_report.docx'
-                )
-                
-                # Удаляем временный файл отчета после отправки
-                response['Content-Disposition'] = 'attachment; filename="vibration_analysis_report.docx"'
-                
-                # В production лучше использовать Django's HttpResponse с auto-cleaning
-                # или celery task для очистки файлов позже
-                import atexit
-                atexit.register(lambda: os.unlink(output_path) if os.path.exists(output_path) else None)
-                
-                return response
-                
-        except Exception as e:
-            messages.error(request, f'Ошибка обработки: {str(e)}')
+        excel_file = request.FILES.get('excel_file')
+        data_archive = request.FILES.get('data_archive')
+        
+        if not excel_file or not data_archive:
+            messages.error(request, 'Пожалуйста, загрузите оба файла')
             return render(request, self.template_name, {'form': form})
-
+        
+        try:
+            # Создаем временную директорию
+            temp_dir = tempfile.mkdtemp()
+            print(f"Создана временная директория: {temp_dir}")
+            
+            # 1. Обработка архива с данными
+            data_files = []
+            
+            archive_path = os.path.join(temp_dir, 'uploaded_archive.zip')
+            with open(archive_path, 'wb') as f:
+                for chunk in data_archive.chunks():
+                    f.write(chunk)
+            
+            try:
+                with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+                    data_files = [
+                        os.path.join(temp_dir, f) 
+                        for f in zip_ref.namelist() 
+                        if f.endswith('.txt') or f.endswith('.csv')
+                    ]
+                
+                if not data_files:
+                    raise ValueError("В архиве не найдены файлы данных (.txt или .csv)")
+                    
+            finally:
+                if os.path.exists(archive_path):
+                    os.unlink(archive_path)
+            
+            # 2. Обработка Excel файла
+            excel_path = os.path.join(temp_dir, 'uploaded_excel.xlsx')
+            with open(excel_path, 'wb') as f:
+                for chunk in excel_file.chunks():
+                    f.write(chunk)
+            
+            try:
+                excel_data = pd.read_excel(excel_path)
+                required_columns = ['Образец', 'Ширина', 'Длина', 'Высота', 'Масса']
+                
+                if not all(col in excel_data.columns for col in required_columns):
+                    missing = [col for col in required_columns if col not in excel_data.columns]
+                    raise ValueError(f"В Excel файле отсутствуют обязательные колонки: {missing}")
+                    
+            finally:
+                if os.path.exists(excel_path):
+                    os.unlink(excel_path)
+            
+            # 3. Генерация отчета и графиков
+            print(f"Начало генерации отчета. Файлов данных: {len(data_files)}")
+            
+            # Создаем поддиректорию для выходных файлов
+            output_dir = os.path.join(temp_dir, 'output')
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Путь для Word-протокола
+            protocol_path = os.path.join(output_dir, 'vibration_protocol.docx')
+            
+            # Генерируем отчет и получаем пути к графикам и Excel файлам
+            success, plot_dirs, excel_files = genaretion_plot_with_saved_plots(
+                data_files, 
+                excel_data, 
+                output_dir=output_dir,
+                output_filename=protocol_path
+            )
+            
+            if not success:
+                raise ValueError("Не удалось сгенерировать отчет")
+            
+            # 4. Создаем финальный архив
+            archive_name = 'vibration_analysis_results.zip'
+            archive_path = os.path.join(temp_dir, archive_name)
+            
+            # Создаем ZIP архив с сохранением структуры папок
+            with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Добавляем протокол в корень архива
+                if os.path.exists(protocol_path):
+                    zipf.write(protocol_path, arcname='vibration_protocol.docx')
+                
+                # Добавляем папки с графиками и Excel файлами
+                if plot_dirs:
+                    for sample_name, plot_dir in plot_dirs.items():
+                        if os.path.exists(plot_dir):
+                            for root, dirs, files in os.walk(plot_dir):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    arcname = os.path.relpath(file_path, output_dir)
+                                    zipf.write(file_path, arcname=arcname)
+            
+            # 5. Читаем архив в память и создаем ответ
+            with open(archive_path, 'rb') as f:
+                archive_content = f.read()
+            
+            # Создаем HttpResponse с содержимым архива
+            response = HttpResponse(
+                archive_content,
+                content_type='application/zip'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{archive_name}"'
+            response['Content-Length'] = len(archive_content)
+            
+            # 6. Удаляем временные файлы вручную после отправки ответа
+            def cleanup_temp_files():
+                try:
+                    if os.path.exists(temp_dir):
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                        print(f"Очищена временная директория: {temp_dir}")
+                except Exception as e:
+                    print(f"Ошибка при очистке временных файлов: {e}")
+            
+            return response
+            
+        except Exception as e:
+            messages.error(request, f'Ошибка при обработке файлов: {str(e)}')
+            # Очищаем временную директорию при ошибке
+            if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            return render(request, self.template_name, {'form': form})
+            
 def protocol(request):
     return render(request, 'protocol/protocol.html')
 
@@ -669,7 +706,7 @@ class VibrationAnalysisView(View):
         return render(request, 'protocol/pputestus_all.html')
     
     def post(self, request):
-        try:
+
             # Получаем файлы из формы
             excel_file = request.FILES.get('excel_file')
             archive_file = request.FILES.get('archive_file')
@@ -691,8 +728,7 @@ class VibrationAnalysisView(View):
                 for chunk in archive_file.chunks():
                     tmp_archive.write(chunk)
                 archive_path = tmp_archive.name
-            
-            try:
+
                 # Создаем временную папку для всех файлов
                 timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
                 temp_dir = tempfile.mkdtemp(prefix=f'vibration_report_{timestamp}_')
@@ -774,20 +810,7 @@ class VibrationAnalysisView(View):
                     shutil.rmtree(temp_path, ignore_errors=True)
                 
                 return response
-                
-            except Exception as e:
-                # Очистка в случае ошибки
-                self.cleanup_temp_files([excel_path, archive_path])
-                if 'temp_dir' in locals() and os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-                return render(request, 'protocol/pputestus_all.html', {
-                    'error': f'Ошибка обработки: {str(e)}'
-                })
-                
-        except Exception as e:
-            return render(request, 'protocol/pputestus_all.html', {
-                'error': f'Ошибка: {str(e)}'
-            })
+
     
     def save_sample_graphs(self, samples_data, output_dir):
         """

@@ -1,10 +1,5 @@
-import numpy as np
-from scipy.signal import find_peaks
-import os
-import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Устанавливаем неинтерактивный бэкенд
-from matplotlib import pyplot as plt
 import math
 from docx import Document
 from docx.shared import Inches, Pt
@@ -13,20 +8,18 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 import datetime
 import tempfile
 import zipfile
-from io import BytesIO
 from django.http import HttpResponse
 import shutil
-import os
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
-from scipy.signal import find_peaks, spectrogram
-from django.core.files.storage import FileSystemStorage
-from django.shortcuts import render
-from django.conf import settings
-import json
+from scipy.signal import find_peaks
+import numpy as np
+from scipy import interpolate
+import os
+from docx import Document
+
 
 # Настройки графиков
 plt.rcParams['font.family'] = 'Times New Roman'  # Установка шрифта Times New Roman
@@ -145,8 +138,8 @@ def create_plot_modul_young(E1, Eps1, Pr, name_sample, form_factor):
     fig, (ax4, ax5) = plt.subplots(nrows=2, ncols=1, figsize=(10, 6), sharex=True)
 
     ax4.plot(Pr, E1, 'k-', linewidth=linewidth)
-    # ax4.set_title(f'{name_sample} | Коэффициент формы q = {form_factor:.2f}', 
-    #              fontsize=fontsize, fontweight=fontweight)
+    ax4.set_title(f'{name_sample} | q = {form_factor:.4f}', 
+                 fontsize=fontsize, fontweight=fontweight)
     ax4.set_xlabel('Удельное давление, МПа', fontsize=fontsize, fontweight=fontweight)
     ax4.set_ylabel('Модуль упругости, МПа', fontsize=fontsize, fontweight=fontweight)
     ax4.grid(True, linestyle='--', alpha=0.6)
@@ -186,6 +179,8 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
     ax1_force = ax1.twinx()
     line, = ax1_force.plot(Time, Forse, 'r', label='Нагрузка (Н)', linewidth=linewidth)
     ax1_force.set_ylabel('Нагрузка, Н', fontsize=fontsize, fontweight=fontweight, color='red')
+    ax1.set_title(f'{name_sample} | q = {form_factor:.4f}', 
+                 fontsize=fontsize, fontweight=fontweight)
 
     # Находим пики нагрузки
     peaks, _ = find_peaks(Forse, prominence=np.std(Forse)/2)
@@ -211,15 +206,18 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
                 break
         
         unload_time = Time[unload_idx]
+
+        # Конечная нагрузка 
         unload_force = Forse[unload_idx]
-        unload_disp = Disp[unload_idx]
+
+        # Время релаксации 
         time_load = unload_time - last_peak_time
         
         # Визуализация
-
-        ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
-        ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
-    
+        if time_load >= 500:
+            ax1_force.plot(last_peak_time, last_peak_force, 'go', markersize=8, label='Пик нагрузки')
+            ax1_force.plot(unload_time, unload_force, 'mo', markersize=8, label='Начало разгрузки')
+        
 
         # Легенда
         lines, labels = ax1.get_legend_handles_labels()
@@ -240,9 +238,9 @@ def full_plot(Time, Disp, Forse, name_sample, form_factor):
     return {
         'plot_path': plot_path,
         'unload_time': unload_time,
-        'unload_force': unload_force,
-        'last_peak_force': last_peak_force,
-        'time_load': time_load
+        'unload_force': unload_force, # Нагрузка в конце релаксации 
+        'last_peak_force': last_peak_force, # Нагрузка на последнем пике в начале релаксации 
+        'time_load': time_load # Время релаксации 
     }
 
 
@@ -272,8 +270,8 @@ def plot_cycles_only(Forse, Disp, locs, name_sample, form_factor):
     ax.set_ylabel('Нагрузка, Н', fontsize=fontsize, fontweight=fontweight)
     ax.grid(True)
     ax.legend(loc='lower right')
-    # ax.set_title(f'Циклы нагружения\n{name_sample} | q = {form_factor:.2f}',
-    #             fontsize=fontsize, fontweight=fontweight)
+    ax.set_title(f'{name_sample} | q = {form_factor:.4f}',
+                fontsize=fontsize, fontweight=fontweight)
 
     plt.tight_layout()
     plt.close()
@@ -291,14 +289,21 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
     if df is None:
         return None
 
+    # Нахождения площади образца
+    A = width * length
+
+    # Нахождение коэффициента формы
+    q = A / (2 * height * ( width + length))
+
     force = df[0].values
     displacement = df[2].values
     time = df[3].values
     locs = find_loading_cycles(df)
 
-    plot_data = full_plot(time, displacement, force, sample_name, length)
+    plot_data = full_plot(time, displacement, force, sample_name, q)
 
     full_plot_path = plot_data['plot_path']
+
     unload_time = plot_data['unload_time']
     unload_force = plot_data['unload_force']
     last_peak_force = plot_data['last_peak_force']
@@ -309,8 +314,8 @@ def process_sample_file(filepath, sample_name, width, length, height, mass):
     if E1 is None:
         return None
         
-    modul_plot_path = create_plot_modul_young(E1, Eps1, Pr, sample_name, length)
-    cycles_plot_path = plot_cycles_only(force, displacement, locs, sample_name, length)
+    modul_plot_path = create_plot_modul_young(E1, Eps1, Pr, sample_name, q)
+    cycles_plot_path = plot_cycles_only(force, displacement, locs, sample_name, q)
     
     # Получаем значения нагрузки в заданных диапазонах деформации
     load_values = get_load_at_deformations(Pr, Eps1)
@@ -618,6 +623,15 @@ def cleanup_temp_files(samples_data):
 
 
 def genaretion_plot(data_list, data_excel, template_path=None, output_filename='Итоговый_протокол.docx'):
+        """
+        Функция для создания объедененного протокола статика.
+        Функция проходиться по файлу добавляет информацию по тегам {NAME_TAG}.
+            
+            :param data_list: список с испытаниями 
+            :param data_excel: Excel файл с размерами образца
+            :param template_path: путь до шаблона Word-файла
+            :param output_filename: конечное название файла
+        """
 
         # Определяем путь к шаблону по умолчанию
         if template_path is None:
@@ -661,7 +675,7 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
 
             try:
                 # Convert numpy.float64 to float directly (no need for replace)
-                width = float(row['Ширина'].values[0].replace(',', '.'))  # ← Missing indentation!
+                width = float(row['Ширина'].values[0].replace(',', '.'))
                 length = float(row['Длина'].values[0].replace(',', '.'))
                 height = float(row['Высота'].values[0].replace(',', '.'))
                 mass = float(row['Масса'].values[0].replace(',', '.'))
@@ -681,7 +695,308 @@ def genaretion_plot(data_list, data_excel, template_path=None, output_filename='
         else:
             print("Нет данных для создания протокола!")
             return False
+
+def save_sample_data_to_excel(sample_data, output_dir):
+    """
+    Сохраняет данные образца (E1, Eps1, Pr) в Excel файл с интерполяцией и релаксацией
+    
+    Args:
+        sample_data: словарь с данными образца
+        output_dir: директория для сохранения файла
         
+    Returns:
+        Путь к сохраненному Excel файлу или None в случае ошибки
+    """
+    try:
+        sample_name = sample_data['name']
+        
+        # Проверяем наличие основных данных
+        required_data = ['E1', 'Eps1', 'Pr']
+        for data_key in required_data:
+            if data_key not in sample_data:
+                print(f"Нет данных {data_key} для образца {sample_name}")
+                return None
+        
+        # Извлекаем данные
+        E1 = sample_data['E1']  # Модуль упругости (Estat), МПа
+        Eps1 = sample_data['Eps1']  # Относительная деформация, %
+        Pr = sample_data['Pr']  # Удельное давление, МПа
+        
+        # Проверяем, что данные не пустые
+        if len(Eps1) == 0 or len(Pr) == 0 or len(E1) == 0:
+            print(f"Пустые данные для образца {sample_name}")
+            return None
+        
+        # Создаем DataFrame с исходными данными
+        df_original = pd.DataFrame({
+            'Удельное давление, МПа': Pr,
+            'Относительная деформация, %': Eps1,
+            'Estat, МПа': E1
+        })
+        
+        # Добавляем интерполяцию для заданных процентов деформации
+        df_interpolation = pd.DataFrame()
+        if len(Eps1) > 1:  # Для интерполяции нужно минимум 2 точки
+            percentages = np.arange(5, 51, 5)  # 5%, 10%, 15%, ..., 50%
+            
+            try:
+                # Проверяем, что Eps1 отсортирован
+                if not all(Eps1[i] <= Eps1[i+1] for i in range(len(Eps1)-1)):
+                    # Сортируем данные по Eps1
+                    sorted_indices = np.argsort(Eps1)
+                    Eps1_sorted = np.array(Eps1)[sorted_indices]
+                    Pr_sorted = np.array(Pr)[sorted_indices]
+                    E1_sorted = np.array(E1)[sorted_indices]
+                else:
+                    Eps1_sorted = Eps1
+                    Pr_sorted = Pr
+                    E1_sorted = E1
+                
+                # Определяем реальные границы данных
+                min_eps = float(min(Eps1_sorted))
+                max_eps = float(max(Eps1_sorted))
+                
+                print(f"Образец {sample_name}: мин. деф. = {min_eps}%, макс. деф. = {max_eps}%")
+                
+                # Создаем интерполяционные функции ТОЛЬКО для интерполяции
+                f_load = interpolate.interp1d(
+                    Eps1_sorted, Pr_sorted, 
+                    kind='linear', 
+                    bounds_error=False,
+                    fill_value=np.nan
+                )
+                
+                # Получаем интерполированные значения
+                interpolated_data = []
+                
+                for pct in percentages:
+                    # Интерполируем ТОЛЬКО если процент в пределах измеренных данных
+                    if min_eps <= pct <= max_eps:
+                        load_interp = float(f_load(pct))
+                        
+                        # Проверяем, что получили числа (не NaN)
+                        if not np.isnan(load_interp):
+                            interpolated_data.append({
+                                'Процент сжатия образца, %': pct,
+                                'Интерполированное удельное давление, МПа': load_interp,
+                            })
+                        else:
+                            print(f"  Предупреждение: не удалось интерполировать для {pct}%")
+                    else:
+                        print(f"  Пропуск {pct}%: вне диапазона измерений ({min_eps:.1f}%-{max_eps:.1f}%)")
+                
+                if interpolated_data:
+                    df_interpolation = pd.DataFrame(interpolated_data)
+                    
+            except Exception as e:
+                print(f"Ошибка интерполяции для образца {sample_name}: {str(e)}")
+        
+        # Создаем лист с данными релаксации
+        df_relaxation = pd.DataFrame()
+        # Проверяем наличие данных релаксации по ключам из возвращаемой структуры
+        if ('unload_time' in sample_data and sample_data['unload_time'] is not None and 
+            'unload_force' in sample_data and sample_data['unload_force'] is not None):
+            
+            relaxation_rows = []
+            
+            # Время релаксации (разгрузки)
+            if sample_data['unload_time'] is not None:
+                relaxation_rows.append({
+                    'Параметр': 'Время релаксации',
+                    'Значение': f"{sample_data['unload_time']:.2f} с"
+                })
+            
+            # Начальная нагрузка (последний пик)
+            if 'last_peak_force' in sample_data and sample_data['last_peak_force'] is not None:
+                relaxation_rows.append({
+                    'Параметр': 'Начальная нагрузка',
+                    'Значение': f"{sample_data['last_peak_force']:.2f} МПа"
+                })
+            
+            # Конечная нагрузка
+            if sample_data['unload_force'] is not None:
+                relaxation_rows.append({
+                    'Параметр': 'Конечная нагрузка',
+                    'Значение': f"{sample_data['unload_force']:.2f} МПа"
+                })
+            
+            if relaxation_rows:
+                df_relaxation = pd.DataFrame(relaxation_rows)
+        
+        # Путь для сохранения (ВНЕ всех условий, всегда определяется)
+        excel_path = os.path.join(output_dir, f"{sample_name}_data.xlsx")
+        
+        # Сохраняем в Excel
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            # Исходные данные
+            df_original.to_excel(writer, sheet_name='Исходные данные', index=False)
+            
+            # Интерполяция (если есть данные)
+            if not df_interpolation.empty:
+                df_interpolation.to_excel(writer, sheet_name='Интерполяция', index=False)
+            
+            # Релаксация (если есть данные)
+            if not df_relaxation.empty:
+                df_relaxation.to_excel(writer, sheet_name='Релаксация', index=False)
+            
+            # Настраиваем ширину колонок
+            for sheet_name in writer.sheets:
+                worksheet = writer.sheets[sheet_name]
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        print(f"Данные сохранены в Excel: {excel_path}")
+        return excel_path
+        
+    except Exception as e:
+        print(f"Ошибка при сохранении Excel для образца {sample_name}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+def genaretion_plot_with_saved_plots(data_list, data_excel, template_path=None, output_dir=None, output_filename='Итоговый_протокол.docx'):
+    """
+    Функция для создания объединенного протокола статика с сохранением графиков в отдельные папки
+    и Excel файлов с данными.
+    
+    :param data_list: список с путями к файлам испытаний 
+    :param data_excel: DataFrame с размерами образца
+    :param template_path: путь до шаблона Word-файла
+    :param output_dir: директория для сохранения выходных файлов
+    :param output_filename: конечное название файла
+    :return: (success, plot_dirs, excel_files)
+    """
+    
+    if output_dir is None:
+        output_dir = os.path.join(tempfile.gettempdir(), 'vibration_analysis')
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Определяем путь к шаблону по умолчанию
+    if template_path is None:
+        template_path = os.path.join(os.path.dirname(__file__), 'template.docx')
+        if not os.path.exists(template_path):
+            # Создаем пустой документ, если шаблона нет
+            doc = Document()
+            doc.add_paragraph('{ДАТА}')
+            doc.add_paragraph('{LOAD_TABLE_PLACEHOLDER}')
+            doc.add_paragraph('{SAMPLES_TABLE_PLACEHOLDER}')
+            doc.add_paragraph('{GRAPHS_PLACEHOLDER}')
+            doc.save(template_path)
+    
+    # Проверяем наличие всех плейсхолдеров в шаблоне
+    required_placeholders = {'{ДАТА}', '{LOAD_TABLE_PLACEHOLDER}', 
+                           '{SAMPLES_TABLE_PLACEHOLDER}', '{GRAPHS_PLACEHOLDER}'}
+    doc = Document(template_path)
+    existing_placeholders = set()
+    for paragraph in doc.paragraphs:
+        for placeholder in required_placeholders:
+            if placeholder in paragraph.text:
+                existing_placeholders.add(placeholder)
+    
+    missing_placeholders = required_placeholders - existing_placeholders
+    if missing_placeholders:
+        print(f"Внимание: В шаблоне отсутствуют следующие плейсхолдеры: {', '.join(missing_placeholders)}")
+    
+    # Остальная часть функции остается без изменений
+    data_excel['Образец'] = data_excel['Образец'].astype(str).str.strip()
+    data_excel.columns = data_excel.columns.str.strip()
+    samples_data = []
+    plot_dirs = {}  # Словарь для хранения путей к папкам с графиками
+    excel_files = []  # НОВОЕ: список для хранения путей к Excel файлам
+    
+    for filepath in data_list:
+        filename = os.path.basename(filepath)
+        sample_name = os.path.splitext(filename)[0]
+        
+        row = data_excel[data_excel['Образец'] == sample_name]
+        if row.empty:
+            print(f"Образец {sample_name} не найден в таблице!")
+            continue
+
+        try:
+            # Convert numpy.float64 to float directly (no need for replace)
+            width = float(row['Ширина'].values[0].replace(',', '.'))
+            length = float(row['Длина'].values[0].replace(',', '.'))
+            height = float(row['Высота'].values[0].replace(',', '.'))
+            mass = float(row['Масса'].values[0].replace(',', '.'))
+        except (IndexError, ValueError) as e:
+            print(f"Ошибка получения параметров для образца {sample_name}: {str(e)}")
+            continue
+
+        # Создаем папку для графиков этого образца
+        sample_plot_dir = os.path.join(output_dir, 'graphs', sample_name)
+        os.makedirs(sample_plot_dir, exist_ok=True)
+        plot_dirs[sample_name] = sample_plot_dir
+        
+        # Временная модификация функции save_plot для сохранения в нужную папку
+        original_save_plot = save_plot
+        
+        def custom_save_plot(fig, filename):
+            """Кастомная функция сохранения графиков в папку образца"""
+            full_path = os.path.join(sample_plot_dir, filename)
+            fig.savefig(full_path, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            return full_path
+        
+        # Временно заменяем функцию save_plot
+        import protocol.utils.protocol as protocol_module
+        protocol_module.save_plot = custom_save_plot
+        
+        try:
+            # Вызываем оригинальную функцию process_sample_file
+            sample_data = process_sample_file(filepath, sample_name, width, length, height, mass)
+            
+            if sample_data:
+                # НОВОЕ: Сохраняем данные в Excel файл
+                excel_path = save_sample_data_to_excel(sample_data, sample_plot_dir)
+                if excel_path:
+                    excel_files.append(excel_path)
+                    sample_data['excel_file'] = excel_path
+                
+                # Обновляем пути к графикам в sample_data, чтобы они указывали на правильную папку
+                plot_types = ['full_plot', 'modul_plot', 'cycles_plot']
+                for plot_type in plot_types:
+                    if sample_data.get(plot_type):
+                        # Получаем имя файла из старого пути
+                        old_path = sample_data[plot_type]
+                        if old_path:
+                            filename = os.path.basename(old_path)
+                            # Создаем новый путь в папке образца
+                            new_path = os.path.join(sample_plot_dir, filename)
+                            # Обновляем путь в данных
+                            sample_data[plot_type] = new_path
+                
+                samples_data.append(sample_data)
+        finally:
+            # Восстанавливаем оригинальную функцию
+            protocol_module.save_plot = original_save_plot
+    
+    if samples_data:
+        # Создаем протокол с помощью оригинальной функции fill_template
+        fill_template(template_path, samples_data, output_filename)
+        
+        # НЕ удаляем временные файлы (графики нам нужны в архиве)
+        # cleanup_temp_files(samples_data)
+        
+        print(f"Протокол успешно сохранен в файл: {output_filename}")
+        print(f"Графики сохранены в директории: {os.path.join(output_dir, 'graphs')}")
+        print(f"Excel файлов создано: {len(excel_files)}")  # НОВОЕ
+        
+        return True, plot_dirs, excel_files  # НОВОЕ: возвращаем excel_files
+    else:
+        print("Нет данных для создания протокола!")
+        return False, {}, []  # НОВОЕ: возвращаем пустой список excel_files
+
 
 def generate_individual_protocols(data_list, data_excel, template_path=None, output_dir='Индивидуальные_протоколы', zip_response=False):
     """
