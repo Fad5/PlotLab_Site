@@ -3,154 +3,31 @@
 
 {% block page_title %}Пульсатор{% endblock %}
 
-{% block style %}  <style>
-
-
-  .glass-container {
-    background: var(--box-bg);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(10px);
-    width: 90%;
-    max-width: 1200px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    }
-    .fileform { 
-      background-color: #FFFFFF;
-      border: 1px solid #CCCCCC;
-      border-radius: 2px;
-      cursor: pointer;
-      height: 26px;
-      overflow: hidden;
-      padding: 2px;
-      position: relative;
-      text-align: left;
-      vertical-align: middle;
-      width: 230px;
-  }
-  .fileform .selectbutton { 
-      background-color: #A2A3A3;
-      border: 1px solid #939494;
-      border-radius: 2px;
-      color: #FFFFFF;
-      float: right;
-      font-size: 16px;
-      height: 20px;
-      line-height: 20px;
-      overflow: hidden;
-      padding: 2px 6px;
-      text-align: center;
-      vertical-align: middle;
-      width: 50px;
-  }
-  .fileform #upload{
-      position:absolute; 
-      top:0; 
-      left:0; 
-      width:100%; 
-      -moz-opacity: 0; 
-      filter: alpha(opacity=0); 
-      opacity: 0; 
-      font-size: 150px; 
-      height: 30px; 
-      z-index:20;
-  }
-  .fileform #fileformlabel { 
-      background-color: #FFFFFF;
-      float: left;
-      height: 22px;
-      line-height: 22px;
-      overflow: hidden;
-      padding: 2px;
-      text-align: left;
-      vertical-align: middle;
-      width:160px;
-  }
-
-  input[type="file"] {
-    /* padding: 0.5rem; */
-    border-radius: 8px;
-    width: 100%;
-    max-width: 400px;
-  }
-
-  button:hover {
-    background: #0072ff;
-  }
-
-  .plot-container {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    margin-top: 2rem;
-    width: 100%;
-  }
-
-  .plot {
-    width: 100%;
-    height: 350px;
-    background: var(--box-bg);
-    border-radius: 10px;
-    padding: 15px;
-  }
-
-  .error {
-    color: #ff6b6b;
-    font-weight: bold;
-    margin-top: 1rem;
-  }
-
-  .upload-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 2rem;
-  }
-
-  @media (max-width: 768px) {
-    h1 {
-      font-size: 2rem;
-    }
-    .plot {
-      height: 300px;
-    }
-  }
-  
-</style>{% endblock %}
-
-
-
-
-
 {% block content %}
   <form method="post" enctype="multipart/form-data" class="upload-section">
     {% csrf_token %}
-            <label><strong>📁 Загрузите файл с данными (.alc):</strong></label>
-            <label for="csvFile" class="btn-download">📁 Выбрать файлы</label>
-           <input class="input-file" type="file" name="csv_file" id="csvFile" accept=".alc" multiple required>
-            <button type="submit">Построить графики</button>
-            {% if error %}
-                <div class="error">{{ error }}</div>
-            {% endif %}
-    </form>
+    <label><strong>📁 Загрузите файл с данными (.alc):</strong></label>
+    <label for="csvFile" class="btn-download">📁 Выбрать файлы</label>
+    <input class="input-file" type="file" name="csv_file" id="csvFile" accept=".alc" multiple required>
+    <button type="submit">Построить графики</button>
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+  </form>
 
-<div class="plot-container" id="plot-container"></div>
+  <div class="plot-container" id="plot-container"></div>
 {% endblock %}
-
 
 {% block script %}
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script>
   const rawDatasets = {{ datasets|default:"[]"|safe }};
   const body = document.body;
-  const themeToggle = document.getElementById("themeToggle");
 
-  function getPlotlyLayoutOverrides(theme) {
+  function getPlotlyLayoutOverrides() {
     const styles = getComputedStyle(document.body);
     return {
-      template: theme === "dark" ? "plotly_dark" : "plotly_white",
+      template: "plotly_dark",
       font: { color: styles.getPropertyValue("--text-color").trim() },
       plot_bgcolor: styles.getPropertyValue("--box-bg").trim(),
       paper_bgcolor: styles.getPropertyValue("--box-bg").trim(),
@@ -179,7 +56,7 @@
     return { x: newX, y: newY };
   }
 
-  function renderPlot(index, plot, theme) {
+  function renderPlot(index, plot) {
     const div = document.getElementById(`plot-${index}`);
     const xTitle = plot.xaxis_title || "";
     const yTitle = plot.yaxis_title || "";
@@ -189,7 +66,7 @@
       xaxis: { title: xTitle },
       yaxis: { title: yTitle },
       margin: { t: 50, l: 50, r: 50, b: 50 },
-      ...getPlotlyLayoutOverrides(theme)
+      ...getPlotlyLayoutOverrides()
     };
 
     const originalX = plot.x;
@@ -208,7 +85,7 @@
     };
 
     Plotly.newPlot(div, [trace], layout, { responsive: true }).then(() => {
-      div._original = { x: originalX, y: originalY };  // Save full data
+      div._original = { x: originalX, y: originalY };
 
       div.on('plotly_relayout', (eventData) => {
         if (!eventData["xaxis.range[0]"]) return;
@@ -217,7 +94,6 @@
         const fullX = div._original.x;
         const fullY = div._original.y;
 
-        // Найдём видимые точки
         const indices = [];
         for (let i = 0; i < fullX.length; i++) {
           if (fullX[i] >= x0 && fullX[i] <= x1) indices.push(i);
@@ -241,15 +117,13 @@
   }
 
   function setupLazyRendering() {
-    const theme = body.classList.contains("dark") ? "dark" : "light";
-
     const observer = new IntersectionObserver((entries, obs) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const div = entry.target;
           const index = parseInt(div.dataset.index, 10);
           if (!div.dataset.rendered) {
-            renderPlot(index, rawDatasets[index], theme);
+            renderPlot(index, rawDatasets[index]);
             div.dataset.rendered = "true";
           }
           obs.unobserve(div);
@@ -268,95 +142,10 @@
     });
   }
 
-  function applyTheme(theme) {
-    if (theme === "dark") {
-      body.classList.add("dark");
-      themeToggle.textContent = "☀️ Светлая тема";
-    } else {
-      body.classList.remove("dark");
-      themeToggle.textContent = "🌙 Тёмная тема";
+  document.addEventListener("DOMContentLoaded", function() {
+    if (rawDatasets && rawDatasets.length > 0) {
+      setupLazyRendering();
     }
-
-    document.querySelectorAll(".plot[data-rendered='true']").forEach(div => {
-      const index = parseInt(div.dataset.index, 10);
-      renderPlot(index, rawDatasets[index], theme);
-    });
-  }
-
-  const savedTheme = localStorage.getItem("theme") || "dark";
-  applyTheme(savedTheme);
-  setupLazyRendering();
-
-  themeToggle.addEventListener("click", () => {
-    const newTheme = body.classList.contains("dark") ? "light" : "dark";
-    localStorage.setItem("theme", newTheme);
-    applyTheme(newTheme);
   });
 </script>
 {% endblock %}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

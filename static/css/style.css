@@ -1,0 +1,890 @@
+/* CSS ПЕРЕМЕННЫЕ - ТОЛЬКО ТЁМНАЯ ТЕМА */
+:root {
+    --bg-color: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    --text-color: #fff;
+    --box-bg: rgba(255, 255, 255, 0.05);
+    --plot-color: #00c6ff;
+    --grid-color: rgba(255, 255, 255, 0.1);
+    --menu-bg: rgba(0, 0, 0, 0.2);
+    --menu-hover: rgba(0, 198, 255, 0.2);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Inter", sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.main-header {
+    width: 100%;
+    background: var(--menu-bg);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: linear-gradient(to right, #00c6ff, #0072ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-decoration: none;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.nav-menu a {
+    color: var(--text-color);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: background 0.3s;
+}
+
+.nav-menu a:hover {
+    background: var(--menu-hover);
+}
+
+.page-header {
+    text-align: center;
+    padding: 3rem 1rem 1rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    background: linear-gradient(to right, #00c6ff, #0072ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+.glass-container {
+    background: var(--box-bg);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(10px);
+    width: 100%;
+    max-width: 1200px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+
+
+.glass-container__{
+    border-radius: 20px;
+    width: 100%;
+    max-width: 1200px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.input-file {
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.text-button-file {
+    margin: 5px;
+    font-size: 15px;
+}
+
+.labal_file {
+    margin: 10px;
+    height: 31px;
+    background-color: none;
+}
+
+.btn-download {
+    background: inherit;
+    color: white;
+    cursor: pointer;
+    margin: 10px;
+    height: 31px;
+    padding-left: 14px;
+    padding-right: 14px;
+    background: #00c6ff;
+    border-radius: 8px;
+    padding-top: 6px;
+    font-size: 13px;
+}
+
+.link-a {
+    font-size: large;
+}
+
+.btn-download:hover {
+    background: #0072ff;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    background: #00c6ff;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+button:hover {
+    background: #0072ff;
+}
+
+.plot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 2rem;
+    width: 100%;
+}
+
+.plot {
+    width: 100%;
+    height: 350px;
+    background: var(--box-bg);
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.error {
+    color: #ff6b6b;
+    font-weight: bold;
+    margin-top: 1rem;
+}
+
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.fileform {
+    background-color: #FFFFFF;
+    border: 1px solid #CCCCCC;
+    border-radius: 2px;
+    cursor: pointer;
+    height: 26px;
+    overflow: hidden;
+    padding: 2px;
+    position: relative;
+    text-align: left;
+    vertical-align: middle;
+    width: 230px;
+}
+
+.fileform .selectbutton {
+    background-color: #A2A3A3;
+    border: 1px solid #939494;
+    border-radius: 2px;
+    color: #FFFFFF;
+    float: right;
+    font-size: 16px;
+    height: 20px;
+    line-height: 20px;
+    overflow: hidden;
+    padding: 2px 6px;
+    text-align: center;
+    vertical-align: middle;
+    width: 50px;
+}
+
+.fileform #upload {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    -moz-opacity: 0;
+    filter: alpha(opacity=0);
+    opacity: 0;
+    font-size: 150px;
+    height: 30px;
+    z-index: 20;
+}
+
+.fileform #fileformlabel {
+    background-color: #FFFFFF;
+    float: left;
+    height: 22px;
+    line-height: 22px;
+    overflow: hidden;
+    padding: 2px;
+    text-align: left;
+    vertical-align: middle;
+    width: 160px;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+    .plot {
+        height: 300px;
+    }
+    .nav-container {
+        flex-direction: column;
+        padding: 1rem;
+    }
+    .nav-menu {
+        margin-top: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.transition_3 {
+    transition: all 0.3s;
+}
+
+.dropbtn {
+    font-size: 16px;
+    padding: 0.6rem;
+    color: var(--text-color);
+    background: none;
+    transition: none;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--menu-bg);
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+}
+
+.dropdown-content a {
+    color: var(--text-color);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--menu-hover);
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown:hover .dropbtn {
+    background-color: var(--menu-hover);
+}
+
+/* ВАШ КОД ДЛЯ ГЛАВНОЙ СТРАНИЦЫ */
+.main-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.hero-section {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.hero-title {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.hero-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--text-color);
+    max-width: 800px;
+    margin: 0 auto 2rem;
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.tool-card {
+    background: var(--box-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tool-card:hover {
+    transform: translateY(-5px);
+}
+
+.tool-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: #00c6ff;
+}
+
+.tool-title {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.tool-description {
+    color: var(--text-color);
+    margin-bottom: 1rem;
+}
+
+.tool-link {
+    background-color: #00c6ff;
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.tool-link:hover {
+    background-color: #0072ff;
+}
+
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .tools-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Стили для формы загрузки файла коробочки */
+#Form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+#Form label[for="csvFile"] {
+    cursor: pointer;
+}
+
+.filename-display {
+    text-align: center;
+    margin: 1rem 0;
+    padding: 0.5rem;
+    background: var(--box-bg);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filename-display strong {
+    color: var(--text-color);
+}
+
+input[type="file"] {
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+}
+
+#plot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 2rem;
+    width: 100%;
+}
+
+
+/* Стили для формы загрузки файла */
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+input[type="file"] {
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.plot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 2rem;
+    width: 100%;
+}
+
+.plot {
+    width: 100%;
+    height: 350px;
+    background: var(--box-bg);
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.error {
+    color: #ff6b6b;
+    font-weight: bold;
+    margin-top: 1rem;
+}
+
+
+/* Стили для формы вибрационных характеристик */
+.parameters-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.parameter-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.parameter-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.input-sample {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-color);
+    font-size: var(--font-size-base);
+}
+
+.input-sample:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.test-block {
+    background: var(--box-bg);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.remove-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    align-self: center;
+    transition: all 0.3s;
+}
+
+.remove-btn:hover {
+    background-color: #d32f2f;
+    transform: translateY(-2px);
+}
+
+
+
+.plot-card {
+    background: var(--box-bg);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.plot-title {
+    font-size: var(--font-size-lg);
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.plot-image {
+    width: 100%;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.download-btn {
+    background-color: var(--accent-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s;
+}
+
+.download-btn:hover {
+    background-color: var(--accent-secondary);
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.results-table th, .results-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-table th {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+.results-table td {
+    color: var(--text-color);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-group label {
+    color: var(--text-color);
+}
+
+@media (max-width: 768px) {
+    .test-block {
+        flex-direction: column;
+    }
+    
+    .parameter-group, .form-group {
+        min-width: 100%;
+    }
+}
+
+/* Стили для формы вибрационных характеристик */
+.parameters-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.parameter-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.parameter-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.input-sample {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-color);
+    font-size: var(--font-size-base);
+}
+
+.input-sample:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.test-block {
+    background: var(--box-bg);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.remove-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    align-self: center;
+    transition: all 0.3s;
+}
+
+.remove-btn:hover {
+    background-color: #d32f2f;
+    transform: translateY(-2px);
+}
+
+
+
+.plot-card {
+    background: var(--box-bg);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.plot-title {
+    font-size: var(--font-size-lg);
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.plot-image {
+    width: 100%;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.download-btn {
+    background-color: var(--accent-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s;
+}
+
+.download-btn:hover {
+    background-color: var(--accent-secondary);
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.results-table th, .results-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.results-table th {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+.results-table td {
+    color: var(--text-color);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-group label {
+    color: var(--text-color);
+}
+
+@media (max-width: 768px) {
+    .test-block {
+        flex-direction: column;
+    }
+    
+    .parameter-group, .form-group {
+        min-width: 100%;
+    }
+}
+
+
+/* Стили для генератора протоколов */
+.protocols-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px;
+    border-radius: 15px;
+    box-shadow: var(--shadow-lg);
+}
+
+.section-title {
+    color: var(--text-color);
+    font-size: 32px;
+    margin: 40px 0 25px;
+    position: relative;
+    padding-left: 20px;
+}
+
+.section-title:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    height: 80%;
+    width: 5px;
+    background: var(--gradient-primary);
+    border-radius: 5px;
+}
+
+.protocols-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.protocol-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    position: relative;
+}
+
+.protocol-card:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: var(--gradient-primary);
+}
+
+.protocol-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.card-link {
+    display: flex;
+    align-items: center;
+    padding: 25px;
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    transition: color 0.3s ease;
+    height: 100%;
+    background: var(--box-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-link:hover {
+    color: var(--accent-primary);
+}
+
+.vibro{
+    font-size: 18px;
+}
+
+.card-icon {
+    font-size: 28px;
+    margin-right: 15px;
+    color: var(--accent-primary);
+    min-width: 40px;
+    text-align: center;
+
+}
+
+@media (max-width: 768px) {
+    .protocols-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-title {
+        font-size: 28px;
+    }
+    
+    .protocols-container {
+        padding: 20px 15px;
+    }
+}

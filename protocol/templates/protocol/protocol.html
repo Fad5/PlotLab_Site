@@ -4,103 +4,8 @@
 {% block page_title %}Генератор протоколов{% endblock %}
 
 {% block content %}
-<style>
-    .protocols-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 30px 20px;
-        background: #f8f9fa;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    }
-    
-    .section-title {
-        color: #2c3e50;
-        font-size: 32px;
-        margin: 40px 0 25px;
-        position: relative;
-        padding-left: 20px;
-    }
-    
-    .section-title:before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 5px;
-        height: 80%;
-        width: 5px;
-        background: linear-gradient(to bottom, #3498db, #2ecc71);
-        border-radius: 5px;
-    }
-    
-    .protocols-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 25px;
-        margin: 30px 0;
-    }
-    
-    .protocol-card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        overflow: hidden;
-        border: none;
-        position: relative;
-    }
-    
-    .protocol-card:before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 5px;
-        background: linear-gradient(90deg, #3498db, #2ecc71);
-    }
-    
-    .protocol-card:hover {
-        transform: translateY(-10px) scale(1.02);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-    }
-    
-    .card-link {
-        display: flex;
-        align-items: center;
-        padding: 25px;
-        color: #34495e;
-        text-decoration: none;
-        font-size: 18px;
-        font-weight: 600;
-        transition: color 0.3s ease;
-        height: 100%;
-    }
-    
-    .card-link:hover {
-        color: #3498db;
-    }
-    
-    .card-icon {
-        font-size: 28px;
-        margin-right: 15px;
-        color: #3498db;
-        min-width: 40px;
-        text-align: center;
-    }
-    
-    @media (max-width: 768px) {
-        .protocols-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .section-title {
-            font-size: 28px;
-        }
-    }
-</style>
-
 <div class="protocols-container">
+    <h2 class="section-title">Выберите тип протокола</h2>
     
     <div class="protocols-grid">
         <div class="protocol-card">
@@ -109,13 +14,7 @@
                 <span>Пресс объединённый</span>
             </a>
         </div>
-        
-        <div class="protocol-card">
-            <a class="card-link" href="{% url 'generate_protocols' %}">
-                <i class="fas fa-file card-icon"></i>
-                <span>Пресс единичный</span>
-            </a>
-        </div>
+
         
         <div class="protocol-card">
             <a class="card-link" href="{% url 'Press_Protocols_Stubs' %}">
@@ -131,24 +30,11 @@
             </a>
         </div>
         
-        <div class="protocol-card">
-            <a class="card-link" href="#">
-                <i class="fas fa-tablets card-icon"></i>
-                <span>Вибростолик единичный</span>
-            </a>
-        </div>
         
         <div class="protocol-card">
             <a class="card-link" href="#">
                 <i class="fas fa-plug card-icon"></i>
                 <span>Вибростолик заглушки</span>
-            </a>
-        </div>
-
-        <div class="protocol-card">
-            <a class="card-link" href="#">
-                <i class="fas fa-table card-icon"></i>
-                <span>Остаточная деформация объединённый</span>
             </a>
         </div>
         

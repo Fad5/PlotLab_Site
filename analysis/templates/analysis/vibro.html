@@ -1,156 +1,10 @@
-{% extends 'analysis/base.html' %}
+{% extends "analysis/base.html" %}
 {% load static %}
 
 {% block page_title %}Анализ вибрационных характеристик{% endblock %}
 
-{% block style %}
-<style>
-    .glass-container {
-        background: var(--box-bg);
-        border-radius: 20px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .parameters-section {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .parameter-group {
-        flex: 1;
-        min-width: 200px;
-    }
-
-    .input-sample {
-        width: 100%;
-        padding: 0.5rem;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-    }
-
-    .test-block {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .form-group {
-        flex: 1;
-        min-width: 200px;
-    }
-
-    .remove-btn {
-        background-color: #f44336;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-        align-self: center;
-    }
-
-    .remove-btn:hover {
-        background-color: #d32f2f;
-    }
-
-    #add-test-block, button[type="submit"] {
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 1rem;
-        margin-right: 1rem;
-    }
-
-    #add-test-block:hover, button[type="submit"]:hover {
-        background-color: #45a049;
-    }
-
-    .plot-container {
-        margin-top: 2rem;
-    }
-
-    .plot-card {
-        background: var(--box-bg);
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .plot-title {
-        font-size: 1.25rem;
-        margin-bottom: 1rem;
-        color: var(--text-color);
-    }
-
-    .plot-image {
-        width: 100%;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-
-    .download-btn {
-        background-color: #2196F3;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        text-decoration: none;
-        display: inline-block;
-    }
-
-    .download-btn:hover {
-        background-color: #0b7dda;
-    }
-
-    .results-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 1rem 0;
-    }
-
-    .results-table th, .results-table td {
-        padding: 0.75rem;
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .results-table th {
-        background-color: #f2f2f2;
-    }
-
-    .checkbox-group {
-        display: flex;
-        align-items: center;
-        margin: 1rem 0;
-    }
-
-    .checkbox-group input[type="checkbox"] {
-        margin-right: 0.5rem;
-        width: 18px;
-        height: 18px;
-    }
-
-    @media (max-width: 768px) {
-        .test-block {
-            flex-direction: column;
-        }
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="glass-container">
+<div class="glass-container__">
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <h2>Параметры образца</h2>
@@ -186,7 +40,6 @@
             </div>
         </div>
 
-        <!-- Чекбокс для средней линии -->
         <div class="checkbox-group">
             <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
                    {% if form_data.show_mean_line %}checked{% endif %}>
@@ -199,7 +52,7 @@
             <div class="test-block" id="test-block-{{ forloop.counter0 }}">
                 <div class="form-group">
                     <label for="id_sample_name_{{ forloop.counter0 }}">Название образца:</label>
-                    <input class="sample-name-input" type="text" name="sample_name_{{ forloop.counter0 }}" 
+                    <input class="sample-name-input input-sample" type="text" name="sample_name_{{ forloop.counter0 }}" 
                            id="id_sample_name_{{ forloop.counter0 }}" value="{{ test.sample_name }}" required>
                 </div>
                 <div class="form-group">
@@ -228,15 +81,17 @@
                         <option value="true" {% if test.swap == 'true' %}selected{% endif %}>Да</option>
                     </select>
                 </div>
+                <div class="form-group">
                 <button type="button" class="remove-btn" onclick="this.parentNode.remove()">
                     Удалить
                 </button>
+                </div>
             </div>
             {% empty %}
             <div class="test-block" id="test-block-0">
                 <div class="form-group">
                     <label for="id_sample_name_0">Название образца:</label>
-                    <input class="sample-name-input" type="text" name="sample_name_0" 
+                    <input class="sample-name-input input-sample" type="text" name="sample_name_0" 
                            id="id_sample_name_0" value="Образец 1" required>
                 </div>
                 <div class="form-group">
@@ -250,8 +105,8 @@
                         id="id_mass_0"  value="1" required>
                 </div>
                 <div class="form-group">
-                    <label for="id_file_0">Файл испытания:</label>
-                    <input class="input-sample" type="file" name="file_0" 
+                    <label for="id_file_0" >Файл испытания:</label>
+                    <input class="input-sample"  type="file" name="file_0" 
                         id="id_file_0" required>
                 </div>
                 <div class="form-group">
@@ -266,8 +121,8 @@
         </div>
         
         <div style="margin-top: 1.5rem;">
-            <button type="button" id="add-test-block">Добавить испытание</button>
-            <button type="submit">Анализировать данные</button>
+            <button type="button" class="tool-link vibro" id="add-test-block">Добавить испытание</button>
+            <button type="submit" class="tool-link vibro">Анализировать данные</button>
         </div>
     </form>
 </div>
@@ -322,7 +177,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('test-blocks-container');
     let blockCount = {{ form_data.tests|length|default:1 }};
     
-    // Добавление нового блока испытаний
     document.getElementById('add-test-block').addEventListener('click', function() {
         const newBlock = document.createElement('div');
         newBlock.className = 'test-block';
@@ -331,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         newBlock.innerHTML = `
             <div class="form-group">
                 <label for="id_sample_name_${blockCount}">Название образца:</label>
-                <input class="sample-name-input" type="text" name="sample_name_${blockCount}" 
+                <input class="sample-name-input input-sample" type="text" name="sample_name_${blockCount}" 
                     id="id_sample_name_${blockCount}" value="Образец ${blockCount + 1}" required>
             </div>
             <div class="form-group">
@@ -365,14 +219,13 @@ document.addEventListener('DOMContentLoaded', function() {
         blockCount++;
     });
 
-    // Валидация формы перед отправкой
     document.querySelector('form').addEventListener('submit', function(e) {
         const requiredInputs = this.querySelectorAll('input[required]');
         let isValid = true;
         
         requiredInputs.forEach(input => {
             if (!input.value && input.type !== 'file') {
-                input.style.borderColor = 'red';
+                input.style.borderColor = '#f44336';
                 isValid = false;
             } else {
                 input.style.borderColor = '';
