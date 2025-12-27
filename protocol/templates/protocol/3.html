@@ -91,19 +91,9 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Выбор типа образца -->
-            <div class="form-group sample-type-select">
-                <label for="sampleType">Тип испытуемого образца:</label>
-                <select name="sample_type" id="sampleType" required>
-                    <option value="" disabled selected>Выберите тип образца</option>
-                    <option value="rectangular_plate">Прямоугольная пластина</option>
-                    <option value="square_plate">Квадратная пластина</option>
-                </select>
-            </div>
             
             <!-- Кнопка отправки -->
-            <button type="submit" class="submit-btn" id="submitBtn">
+            <button type="submit" class="download-btn" id="submitBtn">
                 <i class="fas fa-file-export"></i> Сгенерировать протоколы
             </button>
         </form>
@@ -116,7 +106,7 @@
 
         <!-- Секция скачивания шаблона -->
         <div class="download-section">
-            <h4>Скачать шаблоны</h4>
+            <h3>Скачать шаблоны</h3>
             <p>Используйте стандартные шаблоны для подготовки данных:</p>
             <a href="{% url 'download_template' %}" class="download-btn">
                 <i class="fas fa-file-download"></i> Скачать шаблон (.docx)
@@ -409,24 +399,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <li>Процентные значения должны быть положительными числами</li>
         <li>Максимальное значение не может быть меньше минимального</li>
         <li>Время обработки зависит от количества данных (1-3 минуты)</li>
-    </ul>
-</div>
-
-<h2>5. Типы образцов</h2>
-
-<div class="requirement">
-    <h3>Прямоугольная пластина:</h3>
-    <ul>
-        <li>Имеет разные значения ширины и длины</li>
-        <li>Подходит для стандартных прямоугольных образцов</li>
-        <li>Расчеты производятся с учетом разных размеров по осям</li>
-    </ul>
-    
-    <h3>Квадратная пластина:</h3>
-    <ul>
-        <li>Ширина и длина равны</li>
-        <li>Подходит для квадратных образцов</li>
-        <li>Упрощенные расчеты за счет симметрии</li>
     </ul>
 </div>
 {% endblock %}

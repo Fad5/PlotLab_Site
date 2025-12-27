@@ -4,104 +4,6 @@
 {% block page_title %}Справочник{% endblock %}
 
 {% block content %}
-<style>
-    .handbook-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 30px 20px;
-        background: #f8f9fa;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    }
-    
-    .section-title {
-        color: #2c3e50;
-        font-size: 32px;
-        margin: 40px 0 25px;
-        position: relative;
-        padding-left: 20px;
-    }
-    
-    .section-title:before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 5px;
-        height: 80%;
-        width: 5px;
-        background: linear-gradient(to bottom, #3498db, #2ecc71);
-        border-radius: 5px;
-    }
-    
-    .equipment-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 25px;
-        margin: 30px 0;
-    }
-    
-    .equipment-card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        overflow: hidden;
-        border: none;
-        position: relative;
-    }
-    
-    .equipment-card:before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 5px;
-        background: linear-gradient(90deg, #3498db, #2ecc71);
-    }
-    
-    .equipment-card:hover {
-        transform: translateY(-10px) scale(1.02);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-    }
-    
-    .card-link {
-        display: flex;
-        align-items: center;
-        padding: 25px;
-        color: #34495e;
-        text-decoration: none;
-        font-size: 20px;
-        font-weight: 600;
-        transition: color 0.3s ease;
-        height: 100%;
-    }
-    
-    .card-link:hover {
-        color: #3498db;
-    }
-    
-    .card-icon {
-        font-size: 28px;
-        margin-right: 15px;
-        color: #3498db;
-        min-width: 40px;
-        text-align: center;
-    }
-    
-    @media (max-width: 768px) {
-        .equipment-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .section-title {
-            font-size: 28px;
-        }
-    }
-</style>
-
-
-
 <div class="handbook-container">
     <h2 class="section-title">Машины и оборудование</h2>
     
@@ -202,6 +104,5 @@
 {% endblock %}
 
 {% block script %}
-<!-- Подключаем Font Awesome для иконок -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {% endblock %}

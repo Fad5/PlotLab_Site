@@ -1,0 +1,102 @@
+/* ===== СТИЛИ ДЛЯ СПРАВОЧНИКА (ТЕМНАЯ ТЕМА) ===== */
+
+.handbook-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px;
+    background: var(--box-bg);
+    border-radius: 15px;
+    box-shadow: var(--shadow-lg);
+}
+
+.section-title {
+    color: var(--text-color);
+    font-size: 32px;
+    margin: 40px 0 25px;
+    position: relative;
+    padding-left: 20px;
+}
+
+.section-title:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    height: 80%;
+    width: 5px;
+    background: var(--gradient-primary);
+    border-radius: 5px;
+}
+
+.equipment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.equipment-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    position: relative;
+}
+
+.equipment-card:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: var(--gradient-primary);
+}
+
+.equipment-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.card-link {
+    display: flex;
+    align-items: center;
+    padding: 25px;
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: 600;
+    transition: color 0.3s ease;
+    height: 100%;
+    background: var(--box-bg);
+    border: 1px solid var(--border-color);
+}
+
+.card-link:hover {
+    color: var(--accent-primary);
+}
+
+.card-icon {
+    font-size: 28px;
+    margin-right: 15px;
+    color: var(--accent-primary);
+    min-width: 40px;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .equipment-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-title {
+        font-size: 28px;
+    }
+    
+    .handbook-container {
+        padding: 20px 15px;
+    }
+}

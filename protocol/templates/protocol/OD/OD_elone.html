@@ -3,197 +3,6 @@
 
 {% block page_title %}Остаточная деформация единичные протоколы{% endblock %}
 
-{% block style %}
-    <style>
-        /* Основные стили */
-        h1, h2, h3, h4 {
-            color: #2c3e50;
-        }
-        h2 {
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 5px;
-            margin-top: 30px;
-        }
-        
-        /* Контейнер формы */
-        .form-container {
-            background-color: white;
-            border-radius: 8px;
-            padding: 25px;
-            margin-bottom: 30px;
-        }
-        
-        /* Секция скачивания шаблона */
-        .download-section {
-            margin-top: 70px;
-            background-color: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 20px;
-            border-radius: 6px;
-            margin-bottom: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: background-color 0.3s;
-            width: fit-content;
-        }
-        .download-btn:hover {
-            background-color: #2980b9;
-            color: white;
-        }
-        
-        /* Форма и элементы управления */
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .form-control-file {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background-color: #f8f9fa;
-            transition: border-color 0.3s;
-        }
-        .form-control-file:hover {
-            border-color: #3498db;
-        }
-        
-        /* Процентные контролы */
-        .percentage-controls {
-            display: flex;
-            gap: 20px;
-            margin: 25px 0;
-            flex-wrap: wrap;
-        }
-        .percentage-group {
-            flex: 1;
-            min-width: 200px;
-        }
-        .percentage-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .percentage-controls {
-            display: flex;
-            gap: 20px;
-            margin: 25px 0;
-            flex-wrap: wrap;
-        }
-        .percentage-group {
-            flex: 1 1 calc(33.333% - 20px);
-            min-width: 250px;
-            box-sizing: border-box;
-        }
-        .percentage-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .range-inputs {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .range-inputs input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            transition: border-color 0.3s;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .range-inputs input:hover {
-            border-color: #3498db;
-        }
-        .range-inputs input:invalid {
-            border-color: #e74c3c;
-            background-color: #fdecea;
-        }
-                
-        /* Выбор типа образца */
-        .sample-type-select select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background-color: #f8f9fa;
-            transition: border-color 0.3s;
-        }
-        .sample-type-select select:hover {
-            border-color: #3498db;
-        }
-        
-        /* Кнопка отправки */
-        .submit-btn {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .submit-btn:hover {
-            background-color: #2980b9;
-        }
-        
-        /* Остальные стили (requirement, note и т.д.) остаются без изменений */
-        .requirement {
-            background-color: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 20px 0;
-        }
-        .process-step {
-            display: flex;
-            margin-bottom: 15px;
-            align-items: flex-start;
-        }
-        .step-number {
-            background-color: #3498db;
-            color: white;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-right: 15px;
-            flex-shrink: 0;
-        }
-        .note {
-            background-color: #fffde7;
-            padding: 15px;
-            border-left: 4px solid #ffd600;
-            margin: 20px 0;
-        }
-    </style>
-{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -213,16 +22,6 @@
             <div class="form-group">
                 <label for="excelFile">Excel файл с параметрами образцов (.xlsx):</label>
                 <input class="form-control-file" type="file" name="excelFile" id="excelFile" accept=".xlsx,.xls" required>
-            </div>
-
-            <!-- Выбор типа образца -->
-            <div class="form-group sample-type-select">
-                <label for="sampleType">Тип испытуемого образца:</label>
-                <select name="sample_type" id="sampleType" required>
-                    <option value="" disabled selected>Выберите тип образца</option>
-                    <option value="rectangular_plate">Прямоугольная пластина</option>
-                    <option value="square_plate">Квадратная пластина</option>
-                </select>
             </div>
             
             <!-- Кнопка отправки -->
@@ -352,15 +151,19 @@
         <h3>Требования к шаблону DOCX:</h3>
         <ul>
             <li>Должен быть создан в Microsoft Word или совместимом редакторе</li>
-            <li>Должен содержать поля для подстановки в формате: <code>{{ Образец }}</code>, <code>{{ Ширина }}</code> и т.д.</li>
+            <li>Должен содержать поля для подстановки в формате: 
+                <code>{{ Образец }}</code>, 
+                <code>{{ Ширина }}</code> и т.д.
+            </li>
             <li>Поддерживаются все стандартные элементы Word (таблицы, изображения, форматирование)</li>
         </ul>
     </div>
+
     <div class="note">
         <strong>Пример структуры шаблона:</strong>
         <div class="code">
-            ПРОТОКОЛ №{{ Номер_протокола }}<br>
-            Дата: {{ Дата }}<br><br>
+            ПРОТОКОЛ № &#123;&#123; num_prot  &#125;&#125;<br>
+            Дата: &#123;&#123; data_prot   &#125;&#125;<br><br>
             Наименование образца: {{ Образец }}<br>
             Параметры:<br>
             - Ширина: {{ Ширина }} мм<br>
@@ -470,3 +273,4 @@
         </ul>
     </div>
 {% endblock %}
+

@@ -179,12 +179,6 @@ def Press_Protocols_Stubs(request):
             percent_40_min = float(request.POST.get('percent_40_min'))
             percent_40_max = float(request.POST.get('percent_40_max'))
             
-            sample_type = request.POST.get('sample_type')
-
-            if sample_type  == 'square_plate':
-                type_sample = 'Квадратная пластина'
-            if sample_type  == 'rectangular_plate':
-                type_sample = 'Прямоугольная пластина'
 
             # Генерация случайного числа 
             precent_10  = generate_random_float(percent_10_min, percent_10_max)
@@ -244,7 +238,6 @@ def Press_Protocols_Stubs(request):
 
                             context = {
                                 'name_sample': row['Образец'],
-                                'type_sample': type_sample,
                                 'width': row['Ширина'],
                                 'length': row['Длина'],
                                 'height': row['Высота'],
@@ -419,12 +412,6 @@ def OD_generate(request):
             # Получаем данные с полей 
             percent_min = float(request.POST.get('percent_min'))
             percent_max = float(request.POST.get('percent_max'))
-            sample_type = request.POST.get('sample_type')
-
-            if sample_type  == 'square_plate':
-                type_sample = 'Квадратная пластина'
-            if sample_type  == 'rectangular_plate':
-                type_sample = 'Прямоугольная пластина'
 
             # Генерация случайного числа 
             procent  = generate_random_float(percent_min, percent_max)
@@ -488,7 +475,6 @@ def OD_generate(request):
 
                             context = {
                                 'name_sample': row['Образец'],
-                                'type_sample': type_sample,
                                 'width': row['Ширина'],
                                 'length': row['Длина'],
                                 'height': row['Высота'],
@@ -541,13 +527,8 @@ def OD_elone(request):
             # Получаем загруженные файлы
             excel_file = request.FILES['excelFile']
 
-            # Получаем данные с полей 
-            sample_type = request.POST.get('sample_type')
+            # Получаем данные с полей
 
-            if sample_type  == 'square_plate':
-                type_sample = 'Квадратная пластина'
-            if sample_type  == 'rectangular_plate':
-                type_sample = 'Прямоугольная пластина'
 
             # Генерация случайного числа 
 
@@ -612,7 +593,6 @@ def OD_elone(request):
 
                             context = {
                                 'name_sample': row['Образец'],
-                                'type_sample': type_sample,
                                 'width': row['Ширина'],
                                 'length': row['Длина'],
                                 'height': row['Высота'],
