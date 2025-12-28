@@ -496,201 +496,6 @@ def read_ecofizika(file, axes):
 
     return vibration, fs
 
-
-
-
-
-
-
-
-
-def vibration_analysis_(request):
-    error = None
-    data = {
-        'tests': []  # Initialize as empty list
-    }
-    context_ = {'datasets': []}
-    context_['peaks'] = []
-    context_['results_table'] = []
-    
-
-    if request.method == 'POST':
-            # Получаем параметры из формы
-            name = request.POST.get('sampleName', '')
-            a = float(request.POST.get('width', 100))
-            b = float(request.POST.get('length', 100))
-            h = float(request.POST.get('height_id', 20))
-            hz = float(request.POST.get('Hz', 700)) 
-            left_lim = float(request.POST.get('left_lim', 5))
-            limits = (0, int(hz))   
-            i = 0
-            while True:
-                print(i)
-                height_key = f'height_{str(i)}'
-                mass_key = f'mass_{str(i)}'
-                file_key = f'file_{str(i)}' 
-                # Проверяем, есть ли такой блок в запросе
-                if height_key not in request.POST:
-                    break   
-                # Получаем данные блока
-                height = request.POST.get(height_key)
-                mass = request.POST.get(mass_key)
-                file = request.FILES.get(file_key)  
-                if height and mass and file:
-                    # Обработка файла (сохранение)
-                    file_path = os.path.join(settings.MEDIA_ROOT, file.name)
-                    with open(file_path, 'wb+') as destination:
-                        for chunk in file.chunks():
-                            destination.write(chunk)    
-                    # Добавляем данные теста
-                    data['tests'].append({
-                        'height': float(height),
-                        'mass': float(mass),
-                        'file_path': file_path,
-                        'file_name': file.name
-                    })  
-                    i += 1      
-            context_['form_data'] = {
-                'sampleName': name,
-                'width': a,
-                'length': b,
-                'height_id': h,
-                'Hz': hz,
-                'left_lim': left_lim
-             }
-
-            for i in data['tests']:
-                print(i)
-            S = a * b * 1e-6  # площадь образца (m2)
-            results = {}        
-            # Основные графики (аналоги fig_main)
-            main_plots = {
-                'transfer_function': {'x': [], 'y': [], 'names': [], 'mode': 'lines'},
-                'isolation_efficiency': {'x': [], 'y': [], 'names': [], 'mode': 'lines'}
-            }       
-            i = 0
-            all_data = []
-            for M in data['tests']:
-                print(M)
-                project_name = f"{name}_{M['mass']}кг"
-                _h = M['height'] * 1e-3  # высота образца (м)      
-                fs = FileSystemStorage()  
-                vibration_list, fs = read_ecofizika(M['file_path'], ['2', '1'])  
-                # Вычисляем спектрограмму
-                Pxx = {}
-                freqs_ = {}
-                try:
-                    for ax in ['1', '2']:
-                        y = vibration_list[ax].values       
-                        if len(y) < 2048:
-                            error = f"Недостаточно данных для спектра (ось {ax}, длина: {len(y)})"
-                            raise ValueError(error)     
-                        freqs_[ax], _, Pxx[ax] = spectrogram(
-                            y,
-                            nperseg=2048,
-                            noverlap=256,
-                            fs=fs,
-                            scaling='spectrum',
-                            mode='magnitude'
-                        )       
-                    if len(freqs_['1']) < 2:
-                        error = "Недостаточно частотных данных после спектра (ось 1)"
-                        raise ValueError(error)     
-                    if freqs_['1'][1] == 0:
-                        error = "Вторая частота равна нулю (ошибка шкалы частот)"
-                        raise ValueError(error)     
-                    # Ограничение по частотам
-                    last_index = min(int(limits[1] / freqs_['1'][1]), len(freqs_['1']) - 1)
-                    freqs = freqs_['1'][1:last_index]
-                    left_lim_idx = np.argmax(freqs > left_lim) if len(freqs) > 0 else 0     
-                    # Вычисления TR, L и их сглаженных версий
-                    TR1 = np.mean(Pxx['2'][1:last_index] / Pxx['1'][1:last_index], axis=1)
-                    TR = np.mean(Pxx['1'][1:last_index] / Pxx['2'][1:last_index], axis=1)
-                    TR1mean = pd.Series(TR1).rolling(10, min_periods=1, center=True).mean()
-                    TRmean = pd.Series(TR).rolling(10, min_periods=1, center=True).mean()
-                    L = 20 * np.log10(TR)
-                    Lmean = 20 * np.log10(TRmean)           
-                    plots_1 = [
-                        {
-                            'x': freqs.tolist(),
-                            'y': TR1.tolist(),
-                            'name': f'Передаточная функция {M['mass']}',
-                            'mode': 'lines',
-                            'xaxis_title': 'Частота, Гц',
-                            'yaxis_title': 'Модуль передаточной функции',
-                        },
-                        {
-                            'x': freqs.tolist(),
-                            'y': TR1mean.tolist(),
-                            'mode': 'lines'
-                        }
-                    ]   
-                    plots_2 = [
-                        {
-                            'x': freqs.tolist(),
-                            'y': L.tolist(),
-                            'name': 'L',
-                            'mode': 'lines'
-                        },
-                        {
-                            'x': freqs.tolist(),
-                            'y': Lmean.tolist(),
-                            'name': 'L сглаженная',
-                            'mode': 'lines'
-                        }
-                    ]
-                    pp = [plots_1, plots_2]
-                    all_data.append(pp)   
-
-                except Exception as e:
-                    print("Ошибка при спектральном анализе:", str(e))
-                    error = f"Ошибка при анализе спектра (нагрузка {M['mass']} кг): {str(e)}"       
-                context_['datasets'] = all_data
-                # Анализ пиков
-                if len(TR1mean) > left_lim_idx:
-                    max1 = TR1mean[left_lim_idx:].max()
-                    f_peaks = find_peaks(TR1mean[left_lim_idx:], distance=100, prominence=0.1*max1) 
-                    if len(f_peaks[0]) > 0:
-                        f_peak_pos = f_peaks[0][0] + left_lim_idx
-                        Fpeak = freqs[f_peak_pos]   
-                        # Добавляем информацию о пике       
-                        peak_info = {
-                            'frequency': Fpeak,
-                            'position': [Fpeak, TR1mean[f_peak_pos]],
-                            'efficiency_position': [Fpeak, Lmean[f_peak_pos]],
-                            'marker': {'size': 10, 'color': 'red'}
-                        }       
-                        print(f"Columns: {vibration_list.columns}")
-                        print(f"Len ax1: {len(vibration_list['1'])}, Len ax2: {len(vibration_list['2'])}")      
-                        f1, f2 = find_res_width2(TR1mean, freqs, f_peak_pos)
-                        if f1 >= 0:
-                            damp = (f2 - f1) / Fpeak
-                            Ed = 4 * np.pi**2 * Fpeak**2 * M['mass'] * _h / S * 1e-6
-                            results[i] = (Fpeak, Ed, damp)      
-                            peak_info.update({
-                                'resonance_width': [f1, f2],
-                                'annotation': {
-                                    'text': f"Динамический модуль: {Ed:.5f} МПа<br>Демпфирование: {damp:.5f}<br>Частота: {Fpeak:.2f} Гц",
-                                    'position': [Fpeak, TR1mean[f_peak_pos]]
-                                }
-                            }) 
-
-                        peak_info_table = {
-                            'name': M['file_name'],
-                            'Fpeak': Fpeak,
-                            'Ed': Ed,
-                            'damp': damp,
-                            'DM':TR1mean[f_peak_pos]
-                        }       
-                        context_['results_table'].append(peak_info_table)
-                        context_['peaks'].append(peak_info)
-
-    print(f"Error in vibration_analysis: {error}")
-    context_['peaks_json'] = json.dumps(context_.get('peaks', []))
-    return render(request, 'analysis/vibration_analysis.html', context_)
-
-executor = ThreadPoolExecutor(max_workers=min(32, (os.cpu_count() or 1) + 4))
-
 def downsample_list(data, step=100):
     return data[::step]
 
@@ -718,9 +523,9 @@ def process_files(files):
                     usecols=['Время, с', ' Усилие, кН', ' Перемещение, мм'],  # Читаем только нужные колонки
                     dtype={
                         'Время, с': 'float32',
-                        'Усилие, кН': 'float32',
-                        'Перемещение, мм': 'float32'
-                    }  # Уменьшаем объём памяти
+                        ' Усилие, кН': 'float32',
+                        ' Перемещение, мм': 'float32'
+                    }
                 )
             else:
                 df = pd.read_excel(
@@ -744,20 +549,58 @@ def process_files(files):
     force = np.abs(full_df[' Усилие, кН'].values).tolist()  # numpy.abs быстрее pandas.abs
     displacement = np.abs(full_df[' Перемещение, мм'].values).tolist()
 
-    # 4. Ускоренное сохранение (если обязательно нужно)
+    # 4. Создание папки и сохранение файла
     if hasattr(settings, 'MEDIA_ROOT'):
-        path_save_full = os.path.join(settings.MEDIA_ROOT, 'serva', 'full', 'full.csv')
-        full_df.to_csv(path_save_full, index=False, mode='w', encoding='utf-8')  # mode='w' перезаписывает файл
-
+        # Создаем путь к папке
+        folder_path = os.path.join(settings.MEDIA_ROOT, 'serva', 'full')
+        
+        # Создаем папки (если не существуют)
+        os.makedirs(folder_path, exist_ok=True)
+        
+        # Полный путь к файлу
+        file_path = os.path.join(folder_path, 'full.csv')
+        
+        # Сохраняем файл
+        full_df.to_csv(file_path, index=False, mode='w', encoding='utf-8')
+        
+        # Возвращаем не только данные, но и путь к файлу для последующего удаления
+        return json.dumps({
+            'data': [
+                {'x': time_, 'y': displacement, 'title': "Перемещение (мм) - Время (с)"},
+                {'x': time_, 'y': force, 'title': "Нагрузка (кН) - Время (с)"},
+                {'x': displacement, 'y': force, 'title': "Нагрузка (кН) - Перемещение (мм)"},
+            ],
+            'file_path': file_path
+        })
+    
     # 5. Логирование времени
     print(f"Обработано {len(time_)} точек за {time.time() - start_time:.2f} сек")
 
-    # 6. Возвращаем результат
-    return json.dumps([
-        {'x': time_, 'y': displacement, 'title': "Перемещение (мм) - Время (с)"},
-        {'x': time_, 'y': force, 'title': "Нагрузка (кН) - Время (с)"},
-        {'x': displacement, 'y': force, 'title': "Нагрузка (кН) - Перемещение (мм)"},
-    ])
+    # 6. Возвращаем результат без пути к файлу
+    return json.dumps({
+        'data': [
+            {'x': time_, 'y': displacement, 'title': "Перемещение (мм) - Время (с)"},
+            {'x': time_, 'y': force, 'title': "Нагрузка (кН) - Время (с)"},
+            {'x': displacement, 'y': force, 'title': "Нагрузка (кН) - Перемещение (мм)"},
+        ],
+        'file_path': None
+    })
+
+
+def delete_temp_file(file_path):
+    """Функция для удаления временного файла"""
+    try:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Файл {file_path} успешно удален")
+            
+            # Пытаемся удалить пустые родительские папки
+            folder_path = os.path.dirname(file_path)
+            if os.path.exists(folder_path) and not os.listdir(folder_path):
+                os.rmdir(folder_path)
+                print(f"Папка {folder_path} удалена")
+    except Exception as e:
+        print(f"Ошибка при удалении файла {file_path}: {str(e)}")
 
 
 async def Servo(request):
@@ -765,12 +608,29 @@ async def Servo(request):
     if request.method == 'POST':
         uploaded_files = request.FILES.getlist('csv_file')
 
-        # Запускаем процесс обработки в отдельном потоке, чтобы не блокировать event loop
-        plots_json = await asyncio.get_event_loop().run_in_executor(
-            executor, process_files, uploaded_files
+        # Запускаем процесс обработки в отдельном потоке
+        result_json = await asyncio.get_event_loop().run_in_executor(
+            None,  # Используем дефолтный executor
+            process_files, 
+            uploaded_files
         )
-
-        context['datasets'] = plots_json
+        
+        # Парсим JSON результат
+        result = json.loads(result_json)
+        
+        # Если есть данные для графиков
+        if 'data' in result:
+            context['datasets'] = json.dumps(result['data'])
+            
+            # Если файл был сохранен, удаляем его после отправки данных пользователю
+            file_path = result.get('file_path')
+            if file_path:
+                # Удаляем файл через 1 секунду (даем время на отправку ответа)
+                loop = asyncio.get_event_loop()
+                loop.call_later(1, delete_temp_file, file_path)
+        else:
+            context['datasets'] = result_json  # Возвращаем ошибку как есть
+        
         return render(request, 'analysis/servo.html', context)
     
     return render(request, 'analysis/servo.html')
@@ -1080,132 +940,6 @@ def flex_analysis_view(request):
             context['error'] = f"Error processing file: {str(e)}"
     
     return render(request, 'analysis/flex_analysis.html', context)
-
-
-
-
-
-def tensile_test_view(request):
-    context = {}
-    
-    if request.method == 'POST' and request.FILES.get('csv_file'):
-        try:
-            # Получение параметров из формы
-            uploaded_file = request.FILES['csv_file']
-            L0 = float(request.POST.get('height', 80.0))  # Начальная длина образца (мм)
-            A0 = float(request.POST.get('area', 40.0))    # Начальная площадь сечения (мм²)
-            
-            # Сохранение файла временно
-            fs = FileSystemStorage()
-            filename = fs.save(uploaded_file.name, uploaded_file)
-            file_path = fs.path(filename)
-            
-            # Загрузка и обработка данных согласно ГОСТ 11262-2017
-            data = pd.read_csv(file_path, sep="\t", header=None, decimal=',')
-            force = data[0].values.astype(float)
-            displacement = data[2].values.astype(float)
-            
-            # Расчет напряжений и деформаций
-            stress = force / A0  # МПа
-            strain = displacement / L0  # относительная деформация
-            
-            # Удаление начального участка (до 0.1% деформации)
-            threshold = 0.001 * L0
-            valid_idx = np.where(displacement > threshold)[0]
-            stress = stress[valid_idx]
-            strain = strain[valid_idx]
-            displacement = displacement[valid_idx]
-            
-            # Сглаживание данных
-            if len(stress) > 50:
-                stress_smooth = savgol_filter(stress, 51, 3)
-            else:
-                stress_smooth = stress
-            
-            # Преобразование numpy массивов в списки
-            strain_list = strain.tolist()
-            stress_smooth_list = stress_smooth.tolist()
-            
-            # Определение ключевых точек согласно ГОСТ 11262-2017
-            # 1. Предел прочности (R_m)
-            sigma_max = float(np.max(stress_smooth))
-            idx_max = int(np.argmax(stress_smooth))
-            
-            # 2. Предел текучести (R_p0.2)
-            epsilon_target = 0.002
-            interp_func = interp1d(strain, stress_smooth, fill_value="extrapolate")
-            sigma_p02 = float(interp_func(epsilon_target))
-            
-            # 3. Модуль упругости (E) на участке 0.05% - 0.25% деформации
-            epsilon_1 = 0.0005
-            epsilon_2 = 0.0025
-            sigma_1 = float(interp_func(epsilon_1))
-            sigma_2 = float(interp_func(epsilon_2))
-            E = float((sigma_2 - sigma_1) / (epsilon_2 - epsilon_1) / 1000)  # ГПа
-            
-            # 4. Относительное удлинение при разрыве
-            epsilon_break = float(strain[-1])
-            
-            # Подготовка данных для графика
-            datasets = [{
-                'x': strain_list,
-                'y': stress_smooth_list,
-                'type': 'scatter',
-                'mode': 'lines',
-                'name': 'Диаграмма растяжения',
-                'line': {'width': 2}
-            }, {
-                'x': [epsilon_target],
-                'y': [sigma_p02],
-                'mode': 'markers',
-                'name': f'R<sub>p0.2</sub> = {sigma_p02:.1f} МПа',
-                'marker': {'color': 'green', 'size': 10}
-            }, {
-                'x': [strain_list[idx_max]],
-                'y': [sigma_max],
-                'mode': 'markers',
-                'name': f'R<sub>m</sub> = {sigma_max:.1f} МПа',
-                'marker': {'color': 'red', 'size': 10}
-            }]
-            
-            shapes = [
-                {'type': 'line', 'x0': epsilon_1, 'y0': 0, 'x1': epsilon_1, 'y1': sigma_1,
-                 'line': {'color': 'grey', 'dash': 'dash'}, 'opacity': 0.5},
-                {'type': 'line', 'x0': epsilon_2, 'y0': 0, 'x1': epsilon_2, 'y1': sigma_2,
-                 'line': {'color': 'grey', 'dash': 'dash'}, 'opacity': 0.5},
-                {'type': 'line', 'x0': epsilon_target, 'y0': 0, 'x1': epsilon_target, 'y1': sigma_p02,
-                 'line': {'color': 'green', 'dash': 'dash'}, 'opacity': 0.5},
-                {'type': 'line', 'x0': strain_list[idx_max], 'y0': 0, 'x1': strain_list[idx_max], 'y1': sigma_max,
-                 'line': {'color': 'red', 'dash': 'dash'}, 'opacity': 0.5}
-            ]
-            
-            # Сохранение результатов
-            context['datasets'] = json.dumps(datasets, ensure_ascii=False)
-            context['layout'] = json.dumps({
-                'title': 'График растяжения по ГОСТ 11262-2017',
-                'xaxis': {'title': 'Относительная деформация ε'},
-                'yaxis': {'title': 'Напряжение σ, МПа'},
-                'shapes': shapes,
-                'legend': {'x': 0.7, 'y': 0.1},
-                'hovermode': 'x unified'
-            }, ensure_ascii=False)
-            
-            context['results'] = {
-                'sigma_max_MPa': f"{sigma_max:.1f}",
-                'sigma_p02_MPa': f"{sigma_p02:.1f}",
-                'E_modulus_GPa': f"{E:.2f}",
-                'epsilon_break_percent': f"{strain_list[idx_max]*100:.2f}"
-            }
-            
-            # Удаление временного файла
-            fs.delete(filename)
-            
-        except Exception as e:
-            context['error'] = f"Произошла ошибка при обработке данных: {str(e)}"
-            if 'file_path' in locals() and os.path.exists(file_path):
-                fs.delete(filename)
-    
-    return render(request, 'analysis/razr.html', context)
 
 
 def on_load(request):

@@ -22,7 +22,6 @@ h2 {
 /* Секция скачивания шаблона */
 .download-section {
     margin-top: 20px;
-    padding: 20px;
     border-radius: 6px;
     margin-bottom: 25px;
     display: flex;
@@ -357,4 +356,16 @@ code {
 .note strong {
     color: var(--accent-primary);
     font-weight: 600;
+}
+
+/* Для H2 загаловках в генерации протоколов  */
+.Bottom-Margin-0{
+    margin-bottom: 0;
+}
+
+.br_{
+        margin-top: 47px;
+        background-color: rgba(255, 255, 255, 0.2);
+        border: none;
+        height: 1px;
 }
