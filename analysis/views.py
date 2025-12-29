@@ -1081,6 +1081,8 @@ def find_res_width2(TR, freqs, peak_pos):
     
 
 def vibration_analysis___(request):
+    plt.rcParams['figure.facecolor'] = '#ffffff0d'  # Темный фон фигуры
+    plt.rcParams['axes.facecolor'] = '#ffffff0d'    # Темный фон областей графиков
     error = None
     data = {
         'tests': [],
@@ -1111,13 +1113,14 @@ def vibration_analysis___(request):
             'height_id': float(request.POST.get('height_id', 20)),
             'Hz': float(request.POST.get('Hz', 700)),
             'left_lim': float(request.POST.get('left_lim', 5)),
-            'show_mean_line': request.POST.get('show_mean_line', 'true').lower() == 'true',
+            'show_mean_line': request.POST.get('show_mean_line') == 'true',
             'tests': []
         }
         context['form_data'] = form_data
-        print(request.POST.get('show_mean_line', 'true').lower() == 'true')
         show_mean_line = form_data['show_mean_line']
-        print(show_mean_line)
+        print( request.POST.get('show_mean_line', 'true'), ' request.POST.get')
+        print(show_mean_line, 'show_mean_line')
+
 
         # Обрабатываем испытания
         i = 0
@@ -1214,13 +1217,11 @@ def vibration_analysis___(request):
                 ax1.plot(freqs, TR1mean, label='Сглаженные данные', linewidth=2)
                 ax1.set(xlabel='Частота, Гц', ylabel='Модуль передаточной функции')
                 ax1.grid(True)
-                ax1.legend()
                 
                 ax2.plot(freqs, L, label='Исходные данные', alpha=0.5)
                 ax2.plot(freqs, Lmean, label='Сглаженные данные', linewidth=2)
                 ax2.set(xlabel='Частота, Гц', ylabel='Эффективность, дБ')
                 ax2.grid(True)
-                ax2.legend()
                 
                 plt.tight_layout()
                 context['plots'].append({
@@ -1239,8 +1240,7 @@ def vibration_analysis___(request):
                         Fpeak = freqs[f_peak_pos]
                         
                         fig_peak, ax = plt.subplots(figsize=(10, 5))
-                        ax.plot(freqs, TR1mean, label='Передаточная функция')
-                        ax.plot(Fpeak, TR1mean[f_peak_pos], 'ro', label='Резонансный пик')
+
                         
                         f1, f2 = find_res_width2(TR1mean, freqs, f_peak_pos)
                         if f1 >= 0:
@@ -1249,13 +1249,7 @@ def vibration_analysis___(request):
                             
                             ax.hlines(TR1mean[f_peak_pos]/np.sqrt(2), f1, f2, colors='r', 
                                      linestyles='dashed', label=f'Ширина резонанса: {f2-f1:.2f} Гц')
-                            ax.annotate(
-                                f"Fpeak: {Fpeak:.2f} Гц\nEd: {Ed:.2f} МПа\nДемпфирование: {damp:.4f}",
-                                xy=(Fpeak, TR1mean[f_peak_pos]), xytext=(10, 10),
-                                textcoords='offset points',
-                                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
-                                arrowprops=dict(arrowstyle='->')
-                            )
+
                             
                             context['results_table'].append({
                                 'name': test['file_name'],
@@ -1272,16 +1266,6 @@ def vibration_analysis___(request):
                                 'resonance_width': [f1, f2]
                             })
                         
-                        ax.set(title=f"Резонансный пик - {test['sample_name']}",
-                              xlabel='Частота, Гц', ylabel='Модуль передаточной функции')
-                        ax.grid(True)
-                        ax.legend()
-                        plt.tight_layout()
-                        context['plots'].append({
-                            'title': f"Резонансный пик - {test['sample_name']}",
-                            'image': save_plot_to_html(fig_peak),
-                            'index': idx
-                        })
 
                 # Данные для общих графиков
                 combined_transfer_data.append({
@@ -1327,10 +1311,10 @@ def vibration_analysis___(request):
                 
                 # Вычисляем среднее значение
                 mean_transfer = np.nanmean(interpolated_data, axis=0)
-                
+                if show_mean_line:
                 # Рисуем среднюю линию
-                # ax.plot(common_freqs, mean_transfer, 'k--', linewidth=3, 
-                #        label='Средняя линия между образцами', alpha=0.9)
+                    ax.plot(common_freqs, mean_transfer, 'k--', linewidth=3, 
+                        label='Средняя линия между образцами', alpha=0.9)
             
             ax.set(
                 xlabel='Частота, Гц',

@@ -40,12 +40,11 @@
             </div>
         </div>
 
-        <div class="checkbox-group">
-            <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
-                   {% if form_data.show_mean_line %}checked{% endif %}>
-            <label for="show_mean_line">Показывать среднюю линию между образцами</label>
-        </div>
-
+    <div class="checkbox-group">
+        <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
+            {% if form_data.show_mean_line and form_data.show_mean_line != "false" %}checked{% endif %}>
+        <label for="show_mean_line">Показывать среднюю линию между образцами</label>
+    </div>
         <h2>Параметры испытаний</h2>
         <div id="test-blocks-container">
             {% for test in form_data.tests %}
