@@ -1105,6 +1105,9 @@ def vibration_analysis___(request):
     }
     axec = ['2', '1']
 
+    # Список для хранения путей к временным файлам
+    temp_files_to_delete = []
+
     if request.method == 'POST':
         # Получаем параметры образца и сохраняем их для отображения
         form_data = {
@@ -1161,9 +1164,12 @@ def vibration_analysis___(request):
                             destination.write(chunk)
                     file_path_to_use = file_path
                     file_name_to_use = file.name
+                    # Добавляем в список для удаления, только если файл был загружен
+                    temp_files_to_delete.append(file_path)
                 elif existing_file:
                     file_path_to_use = os.path.join(settings.MEDIA_ROOT, existing_file)
                     file_name_to_use = existing_file
+                    # Существующие файлы не удаляем
                 else:
                     continue
                 
@@ -1172,7 +1178,8 @@ def vibration_analysis___(request):
                     'mass': float(mass),
                     'file_path': file_path_to_use,
                     'file_name': file_name_to_use,
-                    'sample_name': sample_name
+                    'sample_name': sample_name,
+                    'is_new_file': bool(file)  # Флаг, что файл был загружен
                 })
                 context['sample_names'].append(sample_name)
                 
@@ -1239,8 +1246,6 @@ def vibration_analysis___(request):
                         f_peak_pos = f_peaks[0][0] + left_lim_idx
                         Fpeak = freqs[f_peak_pos]
                         
-
-                        
                         f1, f2 = find_res_width2(TR1mean, freqs, f_peak_pos)
                         if f1 >= 0:
                             damp = (f2 - f1) / Fpeak
@@ -1260,7 +1265,6 @@ def vibration_analysis___(request):
                                 'position': [Fpeak, TR1mean[f_peak_pos]],
                                 'resonance_width': [f1, f2]
                             })
-                        
 
                 # Данные для общих графиков
                 combined_transfer_data.append({
@@ -1366,5 +1370,14 @@ def vibration_analysis___(request):
                 'image': save_plot_to_html(fig_combined_eff),
                 'index': 'combined_efficiency'
             })
+
+    # УДАЛЕНИЕ ВРЕМЕННЫХ ФАЙЛОВ после создания всех графиков
+            for file_path in temp_files_to_delete:
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        print(f"Удален временный файл: {file_path}")
+                except Exception as e:
+                    print(f"Ошибка при удалении файла {file_path}: {e}")
 
     return render(request, 'analysis/vibro.html', context)
