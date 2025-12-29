@@ -127,7 +127,7 @@
 </div>
 
 {% if results_table %}
-<div class="glass-container">
+<div style="padding: 2rem">
     <h2>Результаты анализа</h2>
     <table class="results-table">
         <thead>
@@ -155,15 +155,10 @@
 {% endif %}
 
 {% if plots %}
-<div class="glass-container plot-container">
-    <h2>Графики</h2>
+<div class="plot-container">
     {% for plot in plots %}
     <div class="plot-card">
-        <div class="plot-title">{{ plot.title }}</div>
         <img src="{{ plot.image }}" alt="{{ plot.title }}" class="plot-image">
-        <a href="{{ plot.image }}" download="{{ plot.title|slugify }}.png" class="download-btn">
-            Скачать график
-        </a>
     </div>
     {% endfor %}
 </div>

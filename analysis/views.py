@@ -1211,7 +1211,7 @@ def vibration_analysis___(request):
 
                 # Графики для текущего образца
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
-                plt.suptitle(f"Анализ образца: {test['sample_name']}", y=1.02)
+                plt.suptitle(f"{test['sample_name']}", y=1.02)
                 
                 ax1.plot(freqs, TR1, label='Исходные данные', alpha=0.5)
                 ax1.plot(freqs, TR1mean, label='Сглаженные данные', linewidth=2)
@@ -1239,17 +1239,12 @@ def vibration_analysis___(request):
                         f_peak_pos = f_peaks[0][0] + left_lim_idx
                         Fpeak = freqs[f_peak_pos]
                         
-                        fig_peak, ax = plt.subplots(figsize=(10, 5))
 
                         
                         f1, f2 = find_res_width2(TR1mean, freqs, f_peak_pos)
                         if f1 >= 0:
                             damp = (f2 - f1) / Fpeak
                             Ed = 4 * np.pi**2 * Fpeak**2 * test['mass'] * (test['loaded_height']*1e-3) / S * 1e-6
-                            
-                            ax.hlines(TR1mean[f_peak_pos]/np.sqrt(2), f1, f2, colors='r', 
-                                     linestyles='dashed', label=f'Ширина резонанса: {f2-f1:.2f} Гц')
-
                             
                             context['results_table'].append({
                                 'name': test['file_name'],
@@ -1314,7 +1309,7 @@ def vibration_analysis___(request):
                 if show_mean_line:
                 # Рисуем среднюю линию
                     ax.plot(common_freqs, mean_transfer, 'k--', linewidth=3, 
-                        label='Средняя линия между образцами', alpha=0.9)
+                        label='Средняя линия', alpha=0.9)
             
             ax.set(
                 xlabel='Частота, Гц',
@@ -1353,10 +1348,11 @@ def vibration_analysis___(request):
                 
                 # Вычисляем среднее значение
                 mean_efficiency = np.nanmean(interpolated_data, axis=0)
-                
+
+                if show_mean_line:
                 # Рисуем среднюю линию
-                # ax.plot(common_freqs, mean_efficiency, 'k--', linewidth=3, 
-                #        label='Средняя линия между образцами', alpha=0.9)
+                    ax.plot(common_freqs, mean_efficiency, 'k--', linewidth=3, 
+                        label='Средняя линия', alpha=0.9)
             
             ax.set(
                 xlabel='Частота, Гц',
