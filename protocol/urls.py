@@ -2,8 +2,8 @@ from django.urls import path
 from .views import (UploadView, download_rar_press_union,download_excel_press_union,
                     protocol, Press_Protocols_Stubs, download_template, 
                     download_excel_press, generate_and_download_protocols, OD_generate, OD_elone,
-                    download_excel_OD_elone, download_template_OD_elone, VibrationAnalysisView,
-                    download_excel_vibrotable_all,download_rar_vibrotable_all)
+                    download_excel_OD_elone, download_template_OD_elone, VibrationAnalysisView,VibrationUploadView,
+                    download_excel_vibrotable_all,download_rar_vibrotable_all,TensileTestUploadView)
 
 urlpatterns = [
     path('', protocol, name='protocol'),
@@ -22,4 +22,6 @@ urlpatterns = [
     path('bbb/', VibrationAnalysisView.as_view(), name='ppu_testus_all'),
     path('download-excel-vibrotable-all/', download_excel_vibrotable_all, name='download_excel_vibrotable_all'),
     path('download-rar-vibrotable-all/', download_rar_vibrotable_all, name='download_rar_vibrotable_all'),
+    path('vibration/', VibrationUploadView.as_view(), name='vibration_upload'),
+    path('tensile-test/', TensileTestUploadView.as_view(), name='tensile_test_upload')
 ]

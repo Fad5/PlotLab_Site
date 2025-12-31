@@ -1371,13 +1371,4 @@ def vibration_analysis___(request):
                 'index': 'combined_efficiency'
             })
 
-    # УДАЛЕНИЕ ВРЕМЕННЫХ ФАЙЛОВ после создания всех графиков
-            for file_path in temp_files_to_delete:
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        print(f"Удален временный файл: {file_path}")
-                except Exception as e:
-                    print(f"Ошибка при удалении файла {file_path}: {e}")
-
     return render(request, 'analysis/vibro.html', context)

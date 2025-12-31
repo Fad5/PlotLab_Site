@@ -41,16 +41,9 @@
                 <i class="fas fa-chart-line"></i> Сгенерировать отчет
             </button>
         </form>
-        
-        <!-- Индикатор загрузки -->
-        <div class="loading" id="loadingIndicator">
-            <div class="spinner"></div>
-            <p>Обработка данных... Это может занять несколько минут</p>
-        </div>
-    </div>
-    
-    <!-- Секция скачивания шаблонов -->
-    <div class="download-section">
+
+                <hr class="br_">
+            <div class="download-section">
         <h2>Скачать шаблоны</h2>
         
         <p>Используйте стандартные шаблоны для подготовки данных:</p>
@@ -62,6 +55,10 @@
         </a>
     </div>
 </div>
+
+    </div>
+    
+    <!-- Секция скачивания шаблонов -->
 
 <!-- Инструкция -->
 <h1>Инструкция по использованию:</h1>
@@ -103,7 +100,7 @@
             <tr>
                 <td><strong>Масса</strong></td>
                 <td>Базовая масса образца</td>
-                <td>Числовое значение (кг)</td>
+                <td>Числовое значение (г)</td>
             </tr>
             <tr>
                 <td><strong>Массы пригрузов</strong></td>
@@ -117,7 +114,7 @@
 <div class="requirement">
     <h3>Требования к архиву с данными:</h3>
     <ul>
-        <li>Поддерживаемые форматы: <strong>.zip</strong> или <strong>.rar</strong></li>
+        <li>Поддерживаемые форматы: <strong>.rar</strong></li>
         <li>Архив должен содержать CSV файлы с результатами измерений</li>
         <li>Имена файлов должны соответствовать шаблону: <strong>"образец_масса.csv"</strong> (например: "1_2.csv", "1_5.csv")</li>
         <li>CSV файлы должны содержать данные в формате: частота, амплитуда</li>
@@ -144,30 +141,30 @@
             <tbody>
                 <tr>
                     <td>1</td>
-                    <td>10.0</td>
-                    <td>100.0</td>
-                    <td>100.0</td>
-                    <td>120.0</td>
-                    <td>9.0</td>
-                    <td>8.0</td>
-                    <td>7.0</td>
+                    <td>10,0</td>
+                    <td>100,0</td>
+                    <td>100,0</td>
+                    <td>120,0</td>
+                    <td>9,0</td>
+                    <td>8,0</td>
+                    <td>7,0</td>
                 </tr>
                 <tr>
                     <td>2</td>
-                    <td>10.0</td>
-                    <td>100.0</td>
-                    <td>100.0</td>
-                    <td>125.0</td>
-                    <td>9.0</td>
-                    <td>8.0</td>
-                    <td>7.0</td>
+                    <td>10,0</td>
+                    <td>100,0</td>
+                    <td>100,0</td>
+                    <td>125,0</td>
+                    <td>9,0</td>
+                    <td>8,0</td>
+                    <td>7,0</td>
                 </tr>
             </tbody>
         </table>
     </div>
 </div>
 
-<h2>2. Процесс работы</h2>
+<h2 >2. Процесс работы</h2>
 
 <div class="process-step">
     <div class="step-number">1</div>
@@ -212,7 +209,7 @@
     </div>
 </div>
 
-<h2>3. Содержание отчета</h2>
+<h2 class="margin-0">3. Содержание отчета</h2>
 
 <div class="requirement">
     <ul>
@@ -225,7 +222,7 @@
     </ul>
 </div>
 
-<h2>4. Ограничения и рекомендации</h2>
+<h2 class="margin-0">4. Ограничения и рекомендации</h2>
 
 <div class="requirement">
     <ul>
@@ -237,14 +234,5 @@
         <li>Время обработки зависит от количества данных (1-5 минут)</li>
     </ul>
 </div>
-
-<script>
-    document.getElementById('uploadForm').addEventListener('submit', function() {
-        // Показываем индикатор загрузки
-        document.getElementById('loadingIndicator').style.display = 'block';
-        document.getElementById('submitBtn').disabled = true;
-        document.getElementById('submitBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
-    });
-</script>
 
 {% endblock %}

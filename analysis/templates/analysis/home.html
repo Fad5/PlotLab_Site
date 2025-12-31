@@ -22,7 +22,14 @@
                 <p class="tool-description">
                     Расчет коэффициента жесткости пружины по данным испытаний.
                 </p>
-                <a href="#" class="tool-link">Перейти</a>
+                <a href="{% url 'vibration_upload' %}" class="tool-link">Перейти</a>
+            </div>
+            <div class="tool-card">
+                <h3 class="tool-title">Разрыв образца</h3>
+                <p class="tool-description">
+                   Построение графика перемещение-время, нагрузка-время
+                </p>
+                <a href="{% url 'tensile_test_upload' %}" class="tool-link">Перейти</a>
             </div>
             
             <div class="tool-card">

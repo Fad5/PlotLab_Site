@@ -40,11 +40,12 @@
             </div>
         </div>
 
-    <div class="checkbox-group">
-        <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
-            {% if form_data.show_mean_line and form_data.show_mean_line != "false" %}checked{% endif %}>
-        <label for="show_mean_line">Показывать среднюю линию между образцами</label>
-    </div>
+        <div class="checkbox-group">
+            <input type="checkbox" name="show_mean_line" id="show_mean_line" value="true" 
+                {% if form_data.show_mean_line and form_data.show_mean_line != "false" %}checked{% endif %}>
+            <label for="show_mean_line">Показывать среднюю линию между образцами</label>
+        </div>
+
         <h2>Параметры испытаний</h2>
         <div id="test-blocks-container">
             {% for test in form_data.tests %}
@@ -80,11 +81,9 @@
                         <option value="true" {% if test.swap == 'true' %}selected{% endif %}>Да</option>
                     </select>
                 </div>
-                <div class="form-group">
-                <button type="button" class="remove-btn" onclick="this.parentNode.remove()">
+                <button type="button" class="remove-btn" onclick="removeTestBlock(this)">
                     Удалить
                 </button>
-                </div>
             </div>
             {% empty %}
             <div class="test-block" id="test-block-0">
@@ -96,16 +95,16 @@
                 <div class="form-group">
                     <label for="id_height_0">Высота под нагрузкой (мм):</label>
                     <input class="input-sample" type="number" step="0.01" name="height_0" 
-                        id="id_height_0"  value="1" required>
+                        id="id_height_0" value="1" required>
                 </div>
                 <div class="form-group">
                     <label for="id_mass_0">Масса нагрузки (кг):</label>
                     <input class="input-sample" type="number" step="0.01" name="mass_0" 
-                        id="id_mass_0"  value="1" required>
+                        id="id_mass_0" value="1" required>
                 </div>
                 <div class="form-group">
-                    <label for="id_file_0" >Файл испытания:</label>
-                    <input class="input-sample"  type="file" name="file_0" 
+                    <label for="id_file_0">Файл испытания:</label>
+                    <input class="input-sample" type="file" name="file_0" 
                         id="id_file_0" required>
                 </div>
                 <div class="form-group">
@@ -115,6 +114,9 @@
                         <option value="true">Да</option>
                     </select>
                 </div>
+                <button type="button" class="remove-btn" onclick="removeTestBlock(this)">
+                    Удалить
+                </button>
             </div>
             {% endfor %}
         </div>
@@ -167,52 +169,131 @@
 
 {% block script %}
 <script>
+// Функция удаления тестового блока
+function removeTestBlock(button) {
+    const testBlock = button.closest('.test-block');
+    if (testBlock) {
+        // Проверяем, сколько осталось блоков
+        const remainingBlocks = document.querySelectorAll('.test-block').length;
+        if (remainingBlocks > 1) {
+            testBlock.remove();
+            // Обновляем индексы оставшихся блоков
+            updateTestBlockIndexes();
+        } else {
+            alert('Должен остаться хотя бы один тестовый блок');
+        }
+    }
+}
+
+// Функция обновления индексов блоков после удаления
+function updateTestBlockIndexes() {
+    const testBlocks = document.querySelectorAll('.test-block');
+    testBlocks.forEach((block, index) => {
+        // Обновляем ID блока
+        block.id = `test-block-${index}`;
+        
+        // Обновляем все input и label внутри блока
+        const inputs = block.querySelectorAll('input, select, label');
+        inputs.forEach(element => {
+            if (element.tagName === 'LABEL') {
+                const forAttr = element.getAttribute('for');
+                if (forAttr) {
+                    element.setAttribute('for', forAttr.replace(/_\d+$/, `_${index}`));
+                }
+            } else {
+                // Обновляем name и id
+                const name = element.getAttribute('name');
+                const id = element.getAttribute('id');
+                
+                if (name && name.includes('_')) {
+                    const newName = name.replace(/_\d+$/, `_${index}`);
+                    element.setAttribute('name', newName);
+                }
+                
+                if (id && id.includes('_')) {
+                    const newId = id.replace(/_\d+$/, `_${index}`);
+                    element.setAttribute('id', newId);
+                }
+                
+                // Для sample_name также обновляем значение
+                if (name && name.startsWith('sample_name_')) {
+                    element.value = `Образец ${index + 1}`;
+                }
+            }
+        });
+    });
+}
+
+// Функция для получения следующего доступного индекса
+function getNextBlockIndex() {
+    const existingBlocks = document.querySelectorAll('.test-block');
+    
+    // Если нет блоков, начинаем с 0
+    if (existingBlocks.length === 0) {
+        return 0;
+    }
+    
+    // Находим максимальный индекс среди всех блоков
+    let maxIndex = -1;
+    existingBlocks.forEach(block => {
+        const id = block.id;
+        const match = id.match(/test-block-(\d+)/);
+        if (match) {
+            const index = parseInt(match[1]);
+            if (index > maxIndex) {
+                maxIndex = index;
+            }
+        }
+    });
+    
+    return maxIndex + 1;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('test-blocks-container');
-    let blockCount = {{ form_data.tests|length|default:1 }};
     
     document.getElementById('add-test-block').addEventListener('click', function() {
+        const nextIndex = getNextBlockIndex();
         const newBlock = document.createElement('div');
         newBlock.className = 'test-block';
-        newBlock.id = `test-block-${blockCount}`;
+        newBlock.id = `test-block-${nextIndex}`;
         
         newBlock.innerHTML = `
             <div class="form-group">
-                <label for="id_sample_name_${blockCount}">Название образца:</label>
-                <input class="sample-name-input input-sample" type="text" name="sample_name_${blockCount}" 
-                    id="id_sample_name_${blockCount}" value="Образец ${blockCount + 1}" required>
+                <label for="id_sample_name_${nextIndex}">Название образца:</label>
+                <input class="sample-name-input input-sample" type="text" name="sample_name_${nextIndex}" 
+                    id="id_sample_name_${nextIndex}" value="Образец ${nextIndex + 1}" required>
             </div>
             <div class="form-group">
-                <label for="id_height_${blockCount}">Высота под нагрузкой (мм):</label>
+                <label for="id_height_${nextIndex}">Высота под нагрузкой (мм):</label>
                 <input class="input-sample" type="number" step="0.01" 
-                    name="height_${blockCount}" id="id_height_${blockCount}"  value="1" required>
+                    name="height_${nextIndex}" id="id_height_${nextIndex}" value="1" required>
             </div>
             <div class="form-group">
-                <label for="id_mass_${blockCount}">Масса нагрузки (кг):</label>
+                <label for="id_mass_${nextIndex}">Масса нагрузки (кг):</label>
                 <input class="input-sample" type="number" step="0.01" 
-                    name="mass_${blockCount}" id="id_mass_${blockCount}"  value="1" required>
+                    name="mass_${nextIndex}" id="id_mass_${nextIndex}" value="1" required>
             </div>
             <div class="form-group">
-                <label for="id_file_${blockCount}">Файл испытания:</label>
+                <label for="id_file_${nextIndex}">Файл испытания:</label>
                 <input class="input-sample" type="file" 
-                    name="file_${blockCount}" id="id_file_${blockCount}" required>
+                    name="file_${nextIndex}" id="id_file_${nextIndex}" required>
             </div>
             <div class="form-group">
-                <label for="id_swap_${blockCount}">Перевернуть:</label>
-                <select class="input-sample" name="swap_${blockCount}" id="id_swap_${blockCount}" required>
+                <label for="id_swap_${nextIndex}">Перевернуть:</label>
+                <select class="input-sample" name="swap_${nextIndex}" id="id_swap_${nextIndex}" required>
                     <option value="false">Нет</option>
                     <option value="true">Да</option>
                 </select>
             </div>
-            <button type="button" class="remove-btn" onclick="this.parentNode.remove()">
+            <button type="button" class="remove-btn" onclick="removeTestBlock(this)">
                 Удалить
             </button>
         `;
-
+        
         container.appendChild(newBlock);
-        blockCount++;
     });
-
+    
     document.querySelector('form').addEventListener('submit', function(e) {
         const requiredInputs = this.querySelectorAll('input[required]');
         let isValid = true;
@@ -226,9 +307,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Проверяем файлы
+        const fileInputs = this.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => {
+            if (!input.files || input.files.length === 0) {
+                // Проверяем, есть ли скрытое поле с существующим файлом
+                const block = input.closest('.test-block');
+                if (block) {
+                    const existingFileInput = block.querySelector('input[type="hidden"][name^="existing_file_"]');
+                    if (!existingFileInput || !existingFileInput.value) {
+                        input.style.borderColor = '#f44336';
+                        isValid = false;
+                    }
+                } else {
+                    input.style.borderColor = '#f44336';
+                    isValid = false;
+                }
+            } else {
+                input.style.borderColor = '';
+            }
+        });
+        
         if (!isValid) {
             e.preventDefault();
-            alert('Пожалуйста, заполните все обязательные поля!');
+            alert('Пожалуйста, заполните все обязательные поля и загрузите файлы!');
         }
     });
 });
