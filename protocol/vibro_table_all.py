@@ -820,36 +820,26 @@ def process_excel_file(excel_file):
     
     Столбцы с массами (2, 5, 10) могут меняться.
     """
-    
-    # Читаем Excel файл
     df = pd.read_excel(excel_file)
-    
-    # Определяем основные колонки с фиксированными названиями
     fixed_columns = ['Образец', 'Высота', 'Ширина', 'Длина', 'Масса']
  
-    # Находим колонки с массами (числовые значения)
     mass_columns = []
     for col in df.columns:
-        # Пропускаем фиксированные колонки
         if col in fixed_columns:
             continue
-        # Проверяем, является ли название колонки числом (массой)
         if str(col).replace('.', '').isdigit():
             mass_columns.append(col)
-        # Также проверяем шаблон типа "2кг", "5_kg" и т.д.
         elif re.match(r'^\d+[\s_]*[kк]?[gг]?$', str(col), re.IGNORECASE):
-            # Извлекаем числовую часть
             mass_value = re.findall(r'\d+', str(col))[0]
             mass_columns.append(mass_value)
  
-    # Сортируем массы по возрастанию
     mass_columns = sorted([float(mass) for mass in mass_columns])
-    mass_columns = [str(mass) for mass in mass_columns]
     samples_data = {}
     
     for _, row in df.iterrows():
-        sample_id = str((row['Образец']))
-        # Основные геометрические параметры
+        # Конвертируем в строку без .0
+        sample_id = str(int(float(row['Образец'])))
+        
         geometric_params = {
             'height': float(row['Высота']),
             'width': float(row['Ширина']),
@@ -857,30 +847,28 @@ def process_excel_file(excel_file):
             'base_mass': float(row['Масса']) if 'Масса' in row else 0.0
         }
         
-        # Данные по массам (пригрузам)
         mass_data = {}
         path_files = []
-        for mass_col in mass_columns:
-            mass_col = str(mass_col).split('.')[0]
-            mass_col = int(mass_col)
-            path_file = str(sample_id)+'_'+str(mass_col)+'.csv'
+        
+        for mass in mass_columns:
+            # Формируем имя файла: "1_2.csv" вместо "1.0_2.csv"
+            path_file = f"{sample_id}_{int(mass)}.csv"
             path_files.append(path_file)
-            if mass_col in row:
-                mass_value = float(mass_col)
-                # Здесь можно хранить дополнительные данные, например:
-                mass_data[mass_value] = {
-                    'value': float(row[mass_col]) if pd.notna(row[mass_col]) else None,
-                    # 'some_other_parameter': ...
-                }
+            
+            # Получаем значение массы из соответствующей колонки
+            mass_value = float(mass)
+            mass_data[mass_value] = {
+                'value': float(row[mass]) if pd.notna(row.get(mass, None)) else None,
+            }
         
         samples_data[sample_id] = {
             'geometric_params': geometric_params,
             'masses': mass_data,
-            'all_mass_values': list(mass_data.keys()),  # список всех масс для этого образца
-            'name_files': path_files
+            'all_mass_values': list(mass_data.keys()),
+            'name_files': path_files  # Теперь здесь правильные имена: "1_2.csv"
         }
     
-    return samples_data, mass_columns
+    return samples_data, [str(m) for m in mass_columns]
 
 
 def extract_archive_to_temp(archive_path, extract_to=None):
@@ -945,47 +933,3 @@ def get_file(temp_path, data):
         path = (temp_path + '/' + i)
         list_files.append(path)
     return list_files
-
-# Пример использования:
-def example_usage():
-    """
-    Пример использования функции
-    """
-    # Обработка Excel файла
-    samples_data, mass_columns = process_excel_file('Красный/Красный.xlsx')
-    
-    temp_path = (extract_archive('Красный/Красный.zip'))
- 
-    list_file = (get_archive_files_list('Красный/Красный.zip'))
-
-    for sample_id, data in samples_data.items():
-        for i in data['name_files']:
-            if i  in list_file:
-                continue
-            else:
-                print(f"Отсутствует файл {i} в архиеве")
-
-
-        files = data['name_files'] 
-        list_files = get_file(temp_path,files)
- 
-        a = data['geometric_params']['length']
-        b = data['geometric_params']['width']
-        h = data['geometric_params']['height']
-
-        loads = mass_columns
-
-
-        heights = [item['value'] for item in data['masses'].values()]
-        
-
-        images, datas, results = vibraTableOne(sample_id, list_files, a, b, h, heights, loads)
-
-        samples_data[sample_id]['images'] = images
-        samples_data[sample_id]['datas'] = datas
-        samples_data[sample_id]['results'] = results
-
-    create_full_report(samples_data, 'Красный/Красный.docx')
-
-if __name__ == "__main__":
-    example_usage()

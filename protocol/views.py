@@ -716,7 +716,6 @@ class VibrationAnalysisView(View):
                 
                 # Обрабатываем Excel файл
                 samples_data, mass_columns = process_excel_file(excel_path)
-                
                 # Извлекаем архив
                 temp_path = extract_archive(archive_path)
                 
@@ -726,9 +725,15 @@ class VibrationAnalysisView(View):
                 # Проверяем наличие всех необходимых файлов
                 missing_files = []
                 for sample_id, data in samples_data.items():
-                    for i in data['name_files']:
-                        if i not in list_file:
-                            missing_files.append(i)
+                    # Преобразуем формат 1.0 → 1
+                    base_name = str(float(sample_id)).replace('.0', '')
+                    
+                    for filename in data['name_files']:
+                        # Преобразуем 1.0_2.csv → 1_2.csv
+                        expected_file = filename.replace(f"{sample_id}_", f"{base_name}_")
+                        
+                        if expected_file not in list_file:
+                            missing_files.append(filename)
                 
                 if missing_files:
                     return render(request, 'protocol/pputestus_all.html', {

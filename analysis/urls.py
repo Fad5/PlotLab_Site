@@ -3,7 +3,6 @@ from analysis import views
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('moduł-younga/', views.analyze_young_modulus, name='moduł_younga'),
     path('box/', views.box_san, name='box_san'),
     path('about/', views.about, name='about'),
     path('servo/', views.Servo, name='Servo'),

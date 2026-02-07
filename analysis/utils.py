@@ -7,6 +7,7 @@ from pathlib import Path
 from docxtpl import DocxTemplate, InlineImage
 from docx.shared import Cm
 import datetime
+import os
 
 
 class YoungModulusAnalyzer:
@@ -259,3 +260,93 @@ class YoungModulusAnalyzer:
         results['form_factor'] = self.form_factor
         results['report_path'] = self.generate_report()
         return results
+    
+
+def find_res_width2(TR, freqs, peak_pos):
+    """Нахождение ширины резонанса на половине высоты"""
+    try:
+        half_height = TR[peak_pos] / 2**0.5
+
+        # Левая граница
+        left = np.where(TR[:peak_pos] <= half_height)[0]
+        if len(left) > 0 and (peak_pos - left[-1]) >= 1:
+            TR_left = TR[left[-1]:peak_pos+1]
+            freqs_left = freqs[left[-1]:peak_pos+1]
+            if len(TR_left) >= 2 and len(freqs_left) >= 2:
+                f1 = np.interp(half_height, TR_left[::-1], freqs_left[::-1])
+            else:
+                f1 = freqs[left[-1]]
+        else:
+            f1 = freqs[0]
+
+        # Правая граница
+        right = np.where(TR[peak_pos:] <= half_height)[0]
+        if len(right) > 0:
+            right_end = peak_pos + right[0] + 1
+            TR_right = TR[peak_pos:right_end]
+            freqs_right = freqs[peak_pos:right_end]
+            if len(TR_right) >= 2 and len(freqs_right) >= 2:
+                f2 = np.interp(half_height, TR_right, freqs_right)
+            else:
+                f2 = freqs[right_end-1]
+        else:
+            f2 = freqs[-1]
+
+        return f1, f2
+
+    except Exception as e:
+        print(f"[find_res_width2] Ошибка: {e}")
+        return -1, -1
+
+def read_ecofizika(file, axes):
+    """Reads data from Ecofizika (Octava)"""
+    vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
+                            dtype=np.float32,
+                            skiprows=4, usecols=range(1,len(axes)+1)).reset_index(drop=True)
+    inf = pd.read_csv(file, sep=' ', encoding='mbcs', header=None, names = None,
+                           skiprows=2, nrows=1).reset_index(drop=True)
+    fs = int(inf.iloc[0, -1])
+
+    return vibration, fs
+
+
+def delete_temp_file(file_path):
+    """Функция для удаления временного файла"""
+    try:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Файл {file_path} успешно удален")
+            
+            # Пытаемся удалить пустые родительские папки
+            folder_path = os.path.dirname(file_path)
+            if os.path.exists(folder_path) and not os.listdir(folder_path):
+                os.rmdir(folder_path)
+                print(f"Папка {folder_path} удалена")
+    except Exception as e:
+        print(f"Ошибка при удалении файла {file_path}: {str(e)}")
+
+# Маленикие функции котороые упрощают код и его понимание 
+def read_file(txt_file, sep = "\t"):
+    """
+    Функция используется для прочтения txt файла с испытательной машины WDW-50
+    """
+    df = pd.read_csv(txt_file, sep=sep, header=None)
+    return df
+
+def in_str_to_float(df):
+    """
+    Функция заменяет , на . и переводит в тип данных float
+    """
+    df.replace(",", ".", regex=True, inplace=True)
+    df = df.astype(float)
+    return df
+
+def get_data_in_file(df):
+    """
+    Функция забирает данные из нужных столбцов для дальнейшей обработке 
+    0 - нагрузка, 2 - перемещение, 3 - время 
+    """
+    force = df[0].values  # нагрузка (Н)
+    displacement = df[2].values  # перемещение (мм)
+    time = df[3].values  # время (с)
+    return force, displacement, time

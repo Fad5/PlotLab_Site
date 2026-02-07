@@ -1,73 +1,32 @@
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 import os
-import numpy as np
-from scipy.signal import find_peaks, spectrogram
-from .utils import YoungModulusAnalyzer
-import tempfile
-from django.shortcuts import render
+from .utils import read_file, in_str_to_float, get_data_in_file, \
+    read_ecofizika, find_res_width2, delete_temp_file
 import json
-from plotly.offline import plot
 import pandas as pd
 import re
-from matplotlib.mlab import specgram
-from django.template.loader import get_template
-import logging
-import os 
-import pandas as pd
-from django.http import HttpResponse
 from io import BytesIO
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import time
-from .handler_db import log_upload_to_db
-logger = logging.getLogger(__name__)
+from scipy.signal import find_peaks, spectrogram
+from django.shortcuts import render
+import matplotlib.pyplot as plt
+import base64
+from scipy.interpolate import interp1d
+from scipy.signal import savgol_filter
 
-def main_(request):
-    error = None
-    
-    if request.method == 'POST' and request.FILES.get('csv_file'):
-        csv_file = request.FILES['csv_file']
-        
-        try:
-            # Пробуем разные разделители
-            df = pd.read_csv(csv_file, sep="\t", header=None)
-            df.replace(",", ".", regex=True, inplace=True)
-            df = df.astype(float)
+def home(request):
+    return render(request, 'analysis/home.html')
 
-            force = df[0].values  # нагрузка (Н)
-            displacement = df[2].values  # перемещение (мм)
-            time_ = df[3].values  # время (с)
-
-            context = {
-                'time': json.dumps(time_.tolist()),
-                'disp': json.dumps(displacement.tolist()),
-                'forse': json.dumps(force.tolist()),
-                'error': error
-            }   
-            print(context)
-        except Exception as e:
-            error = f"Ошибка при обработке файла: {str(e)}"
-            context = {
-                'time': [],
-                'disp': [],
-                'forse': [],
-                'error': error
-            }
-        
-        return render(request, 'analysis/on_load.html', context)
-
-    # <- ВАЖНО: сюда попадает любой GET-запрос или если файл не загружен
-    context = {
-        'time': [],
-        'disp': [],
-        'forse': [],
-        'error': error
-    }
-    return render(request, 'analysis/on_load.html', context)
+def about(request):
+    return render(request, 'analysis/about.html')
 
 def box_san(request):
+    """
+    Функция для отображения графиков из коробочки Сан Саныча
+    """
     error = None
     context = {}
     plots = []
@@ -76,8 +35,6 @@ def box_san(request):
     if request.method == 'POST' and request.FILES.get('csv_file'):
         csv_file = request.FILES['csv_file']
         
-
-        print(csv_file)
         context['filename'] = {
             'filename': csv_file
         }
@@ -95,415 +52,21 @@ def box_san(request):
         else:
             df = pd.DataFrame(data)
 
-            chanal1 = df[0].values
-            chanal2 = df[1].values
-            chanal3 = df[2].values
-            chanal4 = df[3].values
-            chanal5 = df[4].values
-            chanal6 = df[5].values
-            x = len(df[0].values)
+        num_channels = min(6, len(df.columns))  # Защита от случаев, когда столбцов меньше 6
+        plots = []
 
+        for i in range(num_channels):
+            channel_data = df[i].values
             plots.append({
-            'x': x,
-            'y': chanal1.tolist(),
-            'title': "Канал 1",
-            })
-
-            plots.append({
-            'x': x,
-            'y': chanal2.tolist(),
-            'title': "Канал 2",
-            })
-
-            plots.append({
-            'x': x,
-            'y': chanal3.tolist(),
-            'title': "Канал 3",
-            })
-
-            plots.append({
-            'x': x,
-            'y': chanal4.tolist(),
-            'title': "Канал 4",
+                'x': len(channel_data),
+                'y': channel_data.tolist(),
+                'title': f"Канал {i + 1}"
             })
             
-            plots.append({
-            'x': x,
-            'y': chanal5.tolist(),
-            'title': "Канал 5",
-            })
-
-            plots.append({
-            'x': x,
-            'y': chanal6.tolist(),
-            'title': "Канал 6",
-            })
-            
-
             context['datasets'] = json.dumps(plots)
             
-
     return render(request, 'analysis/box_san.html', context)
 
-
-def home(request):
-    return render(request, 'analysis/home.html')
-
-
-def about(request):
-    return render(request, 'analysis/about.html')
-
-
-
-class YoungModulusAnalyzer:
-    def __init__(self, file_path, sample_name="Sample"):
-        self.file_path = file_path
-        self.df = None
-        self.sample_name = sample_name
-        self.width = 128.07  # мм
-        self.length = 108.01  # мм
-        self.initial_height = 28.25  # мм
-        self.area = self.width * self.length  # мм²
-        self.q = self.area / (2 * self.initial_height * (self.width + self.length))
-        self.results_dir = tempfile.mkdtemp()
-        self.plots = []
-        self.error = None
-
-    def load_data(self):
-        try:
-            log_upload_to_db(self.file_path, 'young_modul')
-            self.df = pd.read_csv(self.file_path, sep="\t", header=None, decimal=",")
-            self.df = self.df.replace(",", ".", regex=True).astype(float)
-            return True
-        except Exception as e:
-            self.error = f"Ошибка загрузки данных: {e}"
-            return False
-
-    def process_data(self):
-        if self.df is None:
-            self.error = "Данные не загружены!"
-            return False
-
-        try:
-            k = np.argmax(self.df[0].values > 0)
-            M = self.df.values[k:, :4] - self.df.values[k, :4]
-            sr = len(M) / M[-1, 3] if M[-1, 3] != 0 else 10
-
-            F = M[:, 0]
-            S = M[:, 2]
-            T = np.arange(len(F)) / sr
-
-            peaks, _ = find_peaks(S, height=0.5 * np.max(S))
-            if len(peaks) < 3:
-                self.error = "Недостаточно пиков для анализа (3 минимум)"
-                return False
-
-            Defl = S[peaks[0]]
-            V = Defl / T[peaks[0]]
-
-            self.create_loading_plots(T, F, S, peaks, Defl)
-
-            if len(peaks) >= 4:
-                cycle_index = 3
-            else:
-                cycle_index = 2
-
-            cycle_length = peaks[cycle_index] - peaks[cycle_index - 1]
-            Start = peaks[cycle_index] - cycle_length + 1
-            Finish = peaks[cycle_index]
-
-            F1 = F[Start:Finish + 1]
-            S1 = S[Start:Finish + 1]
-
-            w = 2 * int(np.ceil(sr))
-            n = len(F1) // w
-
-            Pr = np.zeros(n)
-            E1 = np.zeros(n)
-            Eps1 = np.zeros(n)
-
-            for i in range(n):
-                idx1 = i * w
-                idx2 = (i + 1) * w - 1
-                if idx2 >= len(F1):
-                    idx2 = len(F1) - 1
-
-                Pr[i] = (F1[idx1] + F1[idx2]) / 2 / self.area * 1e-6
-                delta_F = F1[idx2] - F1[idx1]
-                delta_S = S1[idx2] - S1[idx1]
-
-                if delta_S != 0:
-                    E1[i] = (delta_F / self.area * 1e-6) / (delta_S / self.initial_height)
-
-                Eps1[i] = (S1[idx1] + S1[idx2]) / 2 / self.initial_height
-
-            if len(Pr) > 0:
-                Pr = Pr - Pr[0]
-
-            self.create_results_plots(Pr, E1, Eps1)
-            return True
-
-        except Exception as e:
-            self.error = f"Ошибка обработки данных: {e}"
-            return False
-
-    def create_loading_plots(self, T, F, S, peaks, Defl):
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        self.plots.append({
-            'x': T.tolist(),
-            'y': S.tolist(),
-            'title': f"{self.sample_name} - Перемещение",
-            'xaxis_title': 'Время, с',
-            'yaxis_title': 'Перемещение, мм',
-            'color':  '#1f77b4'})
-
-        cycle_len = peaks[1] - peaks[0]
-        labels = ['Цикл 1 Перемещение - Нагрузка', 'Цикл 2 Перемещение - Нагрузка', 'Цикл 3 Перемещение - Нагрузка', 'Цикл 4 Перемещение - Нагрузка', 'Цикл 5 Перемещение - Нагрузка']
-        print(peaks)
-        print(len(peaks))
-        for i in range(min(5, len(peaks))):
-            start = peaks[i] - cycle_len + 1 if i > 0 else 0
-            end = peaks[i] + cycle_len if i < len(peaks) - 1 else len(S)
-
-            print(F[start:end])
-            print(S[start:end])
-
-            area = np.trapezoid(F[start:end], S[start:end])
-            self.plots.append({
-                'x': S[start:end].tolist(),
-                'y': F[start:end].tolist(),
-                'title': f"{self.sample_name} - {labels[i]} - {area}",
-                'xaxis_title': 'Перемещение, мм',
-                'yaxis_title': 'Нагрузка, N',
-                'color':  colors[i % len(colors)]})
-
-
-    def create_loading_plots(self, T, F, S, peaks, Defl):
-        # График перемещения (оставляем как было)
-        self.plots.append({
-            'x': T.tolist(),
-            'y': S.tolist(),
-            'title': f"{self.sample_name} - Перемещение",
-            'xaxis_title': 'Время, с',
-            'yaxis_title': 'Перемещение, мм',
-            'line': {'color': '#1f77b4'}
-        })
-
-        # Цвета для разных циклов
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        
-        cycle_len = peaks[1] - peaks[0]
-        
-        # Создаем один объединенный график для всех циклов
-        combined_plot = {
-            'title': f"{self.sample_name} - Все циклы Перемещение-Нагрузка",
-            'xaxis_title': 'Перемещение, мм',
-            'yaxis_title': 'Нагрузка, N',
-            'data': []
-        }
-        
-        for i in range(min(5, len(peaks))):
-            start = peaks[i] - cycle_len + 1 if i > 0 else 0
-            end = peaks[i] + cycle_len if i < len(peaks) - 1 else len(S)
-            
-            # Добавляем данные цикла в объединенный график
-            combined_plot['data'].append({
-                'x': S[start:end].tolist(),
-                'y': F[start:end].tolist(),
-                'name': f'Цикл {i+1}',
-                'line': {'color': colors[i % len(colors)]}
-            })
-            
-            area = np.trapezoid(F[start:end], S[start:end])
-            displacement_closed = None
-
-            load  = F[start:end]
-            displacement = S[start:end]
-                    # Если не совпадают, добавляем первую точку в конец для замыкания
-            if (load[0] != load[-1]) or (displacement[0] != displacement[-1]):
-                load_closed = np.append(load, load[0])
-                displacement_closed = np.append(displacement, displacement[0])
-            else:
-                load_closed = load
-                displacement_closed = displacement
-
-            # Вычисляем площадь методом трапеций для замкнутого контура
-            area = 0.5 * np.abs(np.sum(load_closed[:-1] * np.diff(displacement_closed) - 
-                                np.sum(displacement_closed[:-1] * np.diff(load_closed)))) 
-            # Также сохраняем отдельные графики для каждого цикла (по желанию)
-            self.plots.append({
-                'x': displacement_closed.tolist(),
-                'y': load_closed.tolist(),
-                'title': f"{self.sample_name} - Цикл {i+1} Перемещение-Нагрузка {area}",
-                'xaxis_title': 'Перемещение, мм',
-                'yaxis_title': 'Нагрузка, N',
-                'line': {'color': colors[i % len(colors)]},
-                'fill': 'tonexty', 
-                'fillcolor': 'rgba(0, 100, 200, 0.2)'
-            })
-        
-        # Добавляем объединенный график в список графиков
-        self.plots.append(combined_plot)
-
-    def create_results_plots(self, Pr, E1, Eps1):
-         
-        E1  = E1[E1 != 0]
-        Pr_MPa = (Pr - Pr[0]) * 1e6
-        half = len(Pr_MPa) // 2
-        E1 = E1 * 1_000_000
-        xticks = Pr_MPa[half:]
-        xtick_labels = np.abs(xticks)
-        x = Pr_MPa[:half]
-        y = E1[half:] 
-        self.plots.append({
-            'x': (abs(x)).tolist(),
-            'y': (y).tolist(),
-            'title': "Модуль упругости - Удельное давление",
-            'xaxis_title': 'Нагрузка, MPa',
-            'yaxis_title': "Модуль деформации, MPa",
-            'xticks': xticks.tolist(),
-            'xtick_labels': xtick_labels.tolist(),
-            'color':  '#1f77b4' 
-        })
-        self.plots.append({
-            'x': (abs(x)).tolist(),
-            'y': (Eps1[half:]* 100).tolist(),
-            'color':  '#1f77b4',
-            'title': 'Относительная деформация - Удельное давление',
-            'xaxis_title': 'Нагрузка , MПa',
-            'yaxis_title': 'Относительная деформация, %',
-        })
-
-def analyze_young_modulus(request):
-    context = {'datasets': []}
-    
-
-    if request.method == 'POST' and request.FILES.get('csv_file'):
-        uploaded_file = request.FILES['csv_file']
-        fs = FileSystemStorage()
-        filename = fs.save(uploaded_file.name, uploaded_file)
-        file_path = fs.path(filename)
-
-        # Читаем параметры из формы
-        sample_name = request.POST.get('sampleName', 'Sample')
-        width = float(request.POST.get('width', 100))
-        length = float(request.POST.get('length', 100))
-        initial_height = float(request.POST.get('height', 20))
-
-        # Передаём параметры в анализатор
-        analyzer = YoungModulusAnalyzer(
-            file_path=file_path,
-            sample_name=sample_name
-        )
-        analyzer.width = width
-        analyzer.length = length
-        analyzer.initial_height = initial_height
-        analyzer.area = width * length
-        analyzer.q = analyzer.area / (2 * initial_height * (width + length))
-
-        context['form_data'] = {
-                    'sampleName': sample_name,
-                    'width': width,
-                    'length': length,
-                    'height': int(initial_height)
-                 }
-
-        # Основной анализ
-        if analyzer.load_data():
-            if analyzer.process_data():
-                context['datasets'] = json.dumps(analyzer.plots)
-            else:
-                context['error'] = analyzer.error
-        else:
-            context['error'] = analyzer.error
-
-        # Удаляем файл
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-        # Возвращаем значения обратно в форму
-        context.update({
-            'sample_name': sample_name,
-            'width': width,
-            'length': length,
-            'initial_height': initial_height
-        })
-
-    return render(request, 'analysis/PPU_Testus.html', context)
-
-
-
-
-
-
-
-import os
-import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from scipy.signal import find_peaks, spectrogram
-from django.core.files.storage import FileSystemStorage
-from django.shortcuts import render
-import logging
-
-
-
-def find_res_width2(TR, freqs, peak_pos):
-    """Нахождение ширины резонанса на половине высоты"""
-    try:
-        half_height = TR[peak_pos] / 2**0.5
-
-        # Левая граница
-        left = np.where(TR[:peak_pos] <= half_height)[0]
-        if len(left) > 0 and (peak_pos - left[-1]) >= 1:
-            TR_left = TR[left[-1]:peak_pos+1]
-            freqs_left = freqs[left[-1]:peak_pos+1]
-            if len(TR_left) >= 2 and len(freqs_left) >= 2:
-                f1 = np.interp(half_height, TR_left[::-1], freqs_left[::-1])
-            else:
-                f1 = freqs[left[-1]]
-        else:
-            f1 = freqs[0]
-
-        # Правая граница
-        right = np.where(TR[peak_pos:] <= half_height)[0]
-        if len(right) > 0:
-            right_end = peak_pos + right[0] + 1
-            TR_right = TR[peak_pos:right_end]
-            freqs_right = freqs[peak_pos:right_end]
-            if len(TR_right) >= 2 and len(freqs_right) >= 2:
-                f2 = np.interp(half_height, TR_right, freqs_right)
-            else:
-                f2 = freqs[right_end-1]
-        else:
-            f2 = freqs[-1]
-
-        return f1, f2
-
-    except Exception as e:
-        print(f"[find_res_width2] Ошибка: {e}")
-        return -1, -1
-
-def read_ecofizika(file, axes):
-    """Reads data from Ecofizika (Octava)"""
-    vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
-                            dtype=np.float32,
-                            skiprows=4, usecols=range(1,len(axes)+1)).reset_index(drop=True)
-    inf = pd.read_csv(file, sep=' ', encoding='mbcs', header=None, names = None,
-                           skiprows=2, nrows=1).reset_index(drop=True)
-    fs = int(inf.iloc[0, -1])
-
-    return vibration, fs
-
-def downsample_list(data, step=100):
-    return data[::step]
-
-import pandas as pd
-import os
-import time
-import json
-from django.conf import settings
 
 def process_files(files):
     start_time = time.time()
@@ -586,23 +149,6 @@ def process_files(files):
         'file_path': None
     })
 
-
-def delete_temp_file(file_path):
-    """Функция для удаления временного файла"""
-    try:
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"Файл {file_path} успешно удален")
-            
-            # Пытаемся удалить пустые родительские папки
-            folder_path = os.path.dirname(file_path)
-            if os.path.exists(folder_path) and not os.listdir(folder_path):
-                os.rmdir(folder_path)
-                print(f"Папка {folder_path} удалена")
-    except Exception as e:
-        print(f"Ошибка при удалении файла {file_path}: {str(e)}")
-
-
 async def Servo(request):
     context = {'datasets': []}
     if request.method == 'POST':
@@ -637,10 +183,6 @@ async def Servo(request):
 
 
 # 3-х точечный пластмассы 
-
-
-from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
 
 def find_yield_point_max(strain, stress, sigma_max):
     stress_smooth = savgol_filter(stress, 51, 3)
@@ -806,8 +348,6 @@ def compression(request):
     
     return render(request, 'analysis/3.html', context)
 
-
-
 class FlexureAnalyzer:
     def __init__(self, L=64, b=10, h=4):
         self.L = L
@@ -952,12 +492,12 @@ def on_load(request):
         for csv_file in csv_files:
             try:
                 # Чтение файла
-                df = pd.read_csv(csv_file, sep="\t", header=None)
-                df.replace(",", ".", regex=True, inplace=True)
-                df = df.astype(float)
+                df = read_file(csv_file)
+                # Перевод из str в float
+                df_float = in_str_to_float(df)
 
-                force = df[0].values  # нагрузка (Н)
-                displacement = df[2].values  # перемещение (мм)
+                # Получение нужных данных в нужных столбцах
+                force, displacement, time = get_data_in_file(df_float)
 
                 # Расчет средних значений
                 mask_20_25 = (force >= 20) & (force <= 25)
@@ -981,10 +521,6 @@ def on_load(request):
             except Exception as e:
                 error = f"Ошибка обработки файла {csv_file.name}: {str(e)}"
                 continue
-        
-        # Если запрос на скачивание Excel
-        if 'download_excel' in request.POST:
-            return generate_excel_response(results)
     
     context = {
         'error': error,
@@ -992,37 +528,6 @@ def on_load(request):
     }
     return render(request, 'analysis/on_load.html', context)
 
-def generate_excel_response(results):
-    # Создаем DataFrame из результатов
-    df = pd.DataFrame(results)
-    df.columns = ['Имя файла', '20Н (мм)', '50Н (мм)', '100Н (мм)']
-    
-    # Создаем Excel файл в памяти
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Results')
-    writer.close()
-    output.seek(0)
-    
-    # Создаем HTTP ответ
-    response = HttpResponse(
-        output.getvalue(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=results.xlsx'
-    return response
-
-import os
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
-from scipy.signal import find_peaks, spectrogram
-from django.core.files.storage import FileSystemStorage
-from django.shortcuts import render
-from django.conf import settings
-import json
 
 def save_plot_to_html(fig):
     """Сохраняет график matplotlib в HTML-совместимый формат"""
@@ -1032,53 +537,6 @@ def save_plot_to_html(fig):
     buf.seek(0)
     image_base64 = base64.b64encode(buf.read()).decode('utf-8')
     return f"data:image/png;base64,{image_base64}"
-
-def read_ecofizika(file, axes):
-    """Reads data from Ecofizika (Octava)"""
-    vibration = pd.read_csv(file, sep='\t', encoding='mbcs', header=None, names=axes,
-                          dtype=np.float32,
-                          skiprows=4, usecols=range(1,len(axes)+1)).reset_index(drop=True)
-    inf = pd.read_csv(file, sep=' ', encoding='mbcs', header=None, names=None,
-                     skiprows=2, nrows=1).reset_index(drop=True)
-    fs = int(inf.iloc[0, -1])
-    return vibration, fs
-
-def find_res_width2(TR, freqs, peak_pos):
-    """Нахождение ширины резонанса на половине высоты"""
-    try:
-        half_height = TR[peak_pos] / 2**0.5
-
-        # Левая граница
-        left = np.where(TR[:peak_pos] <= half_height)[0]
-        if len(left) > 0 and (peak_pos - left[-1]) >= 1:
-            TR_left = TR[left[-1]:peak_pos+1]
-            freqs_left = freqs[left[-1]:peak_pos+1]
-            if len(TR_left) >= 2 and len(freqs_left) >= 2:
-                f1 = np.interp(half_height, TR_left[::-1], freqs_left[::-1])
-            else:
-                f1 = freqs[left[-1]]
-        else:
-            f1 = freqs[0]
-
-        # Правая граница
-        right = np.where(TR[peak_pos:] <= half_height)[0]
-        if len(right) > 0:
-            right_end = peak_pos + right[0] + 1
-            TR_right = TR[peak_pos:right_end]
-            freqs_right = freqs[peak_pos:right_end]
-            if len(TR_right) >= 2 and len(freqs_right) >= 2:
-                f2 = np.interp(half_height, TR_right, freqs_right)
-            else:
-                f2 = freqs[right_end-1]
-        else:
-            f2 = freqs[-1]
-
-        return f1, f2
-
-    except Exception as e:
-        print(f"[find_res_width2] Ошибка: {e}")
-        return -1, -1
-    
 
 def vibration_analysis___(request):
     plt.rcParams['figure.facecolor'] = '#ffffff0d'  # Темный фон фигуры
